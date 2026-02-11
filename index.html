@@ -79,6 +79,15 @@
       pointer-events:none;
     }
 
+    /* ✅ PERF: low-end reduce filtros */
+    .low-end #hero-logo-wrap::before{
+      filter: blur(4px) !important;
+      opacity: .45 !important;
+    }
+    .low-end #hero-logo{
+      filter: drop-shadow(0 14px 30px rgba(0,0,0,0.32)) !important;
+    }
+
     /* ✅ BOTÓN TOP NAV */
     .menu-trigger{
       background:#000;
@@ -131,9 +140,7 @@
     }
 
     /* ✅ Subtexto CTA (posición por defecto: oculto en desktop) */
-    .cta-sub{
-      display:none;
-    }
+    .cta-sub{ display:none; }
 
     #menu-overlay{
       position:fixed;
@@ -325,9 +332,7 @@
     #hero-logo{ position:relative; z-index:2; }
 
     /* ✅ FEED THE DEMON en rojo (como referencia) */
-    #hero-text p{
-      color: var(--oni-red) !important;
-    }
+    #hero-text p{ color: var(--oni-red) !important; }
 
     /* ✅ Lista: números rojos + flecha roja en hover */
     #hero-text ul .item-left{
@@ -340,19 +345,13 @@
       font-weight: 900;
       letter-spacing: .18em;
     }
-    #hero-text ul .arrow{
-      color: rgba(255,255,255,.35);
-    }
+    #hero-text ul .arrow{ color: rgba(255,255,255,.35); }
     #hero-text ul li:hover .arrow{
       color: var(--oni-red);
       opacity: 1;
     }
-    #hero-text ul li{
-      border-bottom: 1px solid rgba(255,255,255,.08) !important;
-    }
-    #hero-text ul li:hover{
-      border-bottom-color: var(--oni-red-soft2) !important;
-    }
+    #hero-text ul li{ border-bottom: 1px solid rgba(255,255,255,.08) !important; }
+    #hero-text ul li:hover{ border-bottom-color: var(--oni-red-soft2) !important; }
 
     #menu-intro{
       position:fixed; inset:0; z-index:250;
@@ -520,7 +519,6 @@
 
     /* ✅ MOBILE: simetría nav + CTA más importante */
     @media (max-width: 767px){
-      /* ✅ conecta CTA con hero (ancla visual) */
       #top-nav{
         height: 84px !important;
         padding-left: 18px !important;
@@ -539,14 +537,11 @@
         border-radius: 12px;
         position: relative;
         top: -1px;
-
-        /* ✅ CTA más importante en móvil */
         box-shadow:
           0 0 0 1px rgba(255,255,255,.25),
           0 12px 40px rgba(0,0,0,.6);
       }
 
-      /* ✅ halo sutil (no neón) */
       .menu-trigger::after{
         content:"";
         position:absolute;
@@ -561,7 +556,6 @@
         pointer-events:none;
       }
 
-      /* ✅ subtexto del CTA */
       .cta-sub{
         display:block;
         position:absolute;
@@ -585,16 +579,13 @@
         height: 26px;
       }
 
-      /* ✅ Kanji más grande + centrado óptico */
       #nav-logo{
         width: 74px !important;
         height: 74px !important;
         transform: translateY(2px);
       }
 
-      #top-nav .druk-text.text-4xl{
-        display:none !important;
-      }
+      #top-nav .druk-text.text-4xl{ display:none !important; }
 
       #parallax-scene .layer[data-depth="0.2"] > div{
         display:flex !important;
@@ -631,6 +622,9 @@
         filter: drop-shadow(0 40px 80px rgba(0,0,0,0.45)) !important;
       }
 
+      /* ✅ PERF baseline móvil */
+      .low-end #hero-logo{ filter: drop-shadow(0 18px 40px rgba(0,0,0,0.35)) !important; }
+
       #hero-text{
         align-items: center !important;
         text-align: center !important;
@@ -661,9 +655,7 @@
         letter-spacing: 0.26em !important;
       }
 
-      #hero-text ul li{
-        padding-bottom: 14px !important;
-      }
+      #hero-text ul li{ padding-bottom: 14px !important; }
       #hero-text ul li:hover{
         padding-left: 0 !important;
         padding-right: 0 !important;
@@ -673,18 +665,11 @@
         width: min(980px, 92vw) !important;
         border-radius: 16px !important;
       }
-      .menu-sheet-header{
-        padding: 18px 18px !important;
-      }
-      .menu-sheet-title{
-        font-size: 1.8rem !important;
-      }
+      .menu-sheet-header{ padding: 18px 18px !important; }
+      .menu-sheet-title{ font-size: 1.8rem !important; }
 
-      #menu-overlay .grid.md\:grid-cols-3{
-        grid-template-columns: 1fr !important;
-      }
+      #menu-overlay .grid.md\:grid-cols-3{ grid-template-columns: 1fr !important; }
 
-      /* ✅ PERF FIX: slash glow más liviano en móvil */
       #screen-slash-glow{
         height: 14px !important;
         filter: blur(1px) !important;
@@ -865,7 +850,6 @@
     <div class="layer" data-depth="0.2">
       <div class="w-full h-full grid grid-cols-2 items-center px-[10vw] gap-[3vw]">
         <div class="flex justify-end pr-10">
-          <!-- ✅ WRAPPER animado -->
           <div id="hero-logo-wrap" class="h-[84vh] w-auto max-w-none">
             <img id="hero-logo" src="logo-oni-hero.png" alt="ONI Logo Hero"
                  class="h-full w-auto max-w-none"
@@ -909,7 +893,17 @@
       document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
     }
     setAppHeight();
-    window.addEventListener('resize', setAppHeight);
+
+    // ✅ PERF: throttle resize (barra de navegador móvil = spam)
+    let rh = null;
+    window.addEventListener("resize", () => {
+      if (rh) cancelAnimationFrame(rh);
+      rh = requestAnimationFrame(setAppHeight);
+    }, { passive: true });
+
+    window.addEventListener("orientationchange", () => {
+      setTimeout(setAppHeight, 60);
+    }, { passive: true });
 
     if (typeof window.gsap === "undefined") {
       const overlay = document.getElementById("intro-overlay");
@@ -920,6 +914,21 @@
 
       const isMobile = window.matchMedia("(max-width: 767px)").matches;
 
+      // ✅ PERF: detecta low-end (RAM/cores/prefers-reduced-motion)
+      const lowEndMobile =
+        isMobile &&
+        (
+          (navigator.deviceMemory && navigator.deviceMemory <= 3) ||
+          (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        );
+
+      if (lowEndMobile) document.documentElement.classList.add("low-end");
+
+      // ✅ Eases adaptativos
+      const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
+      const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
+
       document.getElementById("hero-logo-wrap")?.classList.add("gpu");
       document.getElementById("hero-logo")?.classList.add("gpu");
       document.getElementById("hero-text")?.classList.add("gpu");
@@ -928,7 +937,6 @@
 
       gsap.set(".layer", { opacity: 0 });
 
-      /* ✅ PERF: en móvil nada de scale brutal ni blur asesino */
       if (isMobile){
         gsap.set("#hero-logo-wrap", {
           scale: 1.6,
@@ -954,26 +962,30 @@
       function startIntro(){
         const tl = gsap.timeline();
 
-        tl.to("#intro-title", { opacity: 1, scale: 1, duration: 0.7, ease: "expo.out" });
-        tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.25, ease: "power4.in" }, "+=0.35");
+        tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.55 : 0.7, ease: E_IN });
+        tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.22, ease: "power4.in" }, "+=0.28");
         tl.to("#flash", { opacity: 1, duration: 0.05 });
-        tl.to("#intro-overlay", { opacity: 0, duration: 0.6, ease: "expo.inOut" }, "-=0.05");
-        tl.to("#flash", { opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.45");
+        tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
+        tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
         tl.set("#intro-overlay", { visibility: "hidden" });
 
-        tl.to(".layer", { opacity: 1, duration: 0.7, stagger: 0.04, ease: "power2.out" }, "-=0.9");
+        tl.to(".layer", {
+          opacity: 1,
+          duration: lowEndMobile ? 0.35 : 0.7,
+          stagger: lowEndMobile ? 0.01 : 0.04,
+          ease: "power2.out"
+        }, "-=0.75");
 
-        /* ✅ Entrada del logo (móvil ultra fluida / PC con blur) */
         if (isMobile){
           tl.to("#hero-logo-wrap", {
             scale: 1,
             x: 0,
             rotationZ: 0,
             opacity: 1,
-            duration: 0.55,
+            duration: lowEndMobile ? 0.42 : 0.55,
             ease: "power3.out",
             force3D: true
-          }, "-=0.8");
+          }, "-=0.65");
         } else {
           tl.to("#hero-logo-wrap", {
             scale: 1,
@@ -989,10 +1001,9 @@
           tl.set("#hero-logo-wrap", { filter: "none" }, ">-=0.05");
         }
 
-        tl.to("#hero-text", { y: 0, opacity: 1, duration: 0.9, ease: "power4.out" }, "-=0.8");
-        tl.to("#top-nav", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, "-=0.9");
+        tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.65 : 0.9, ease: "power4.out" }, "-=0.65");
+        tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.5 : 0.7, ease: "power3.out" }, "-=0.75");
 
-        /* ✅ PERF: apaga overlays invisibles en móvil (menos cálculos fantasmas) */
         if (isMobile){
           tl.add(() => {
             gsap.set("#intro-overlay", { display: "none" });
@@ -1000,54 +1011,54 @@
           }, ">");
         }
 
-        /* ✅ Idle: flotar + respirar */
+        // ✅ Idle controlado (low-end = menos + se apaga)
         tl.add(() => {
-          gsap.killTweensOf("#hero-logo-wrap");
+          let idleTweens = [];
 
-          gsap.set("#hero-logo-wrap", {
-            y: 0,
-            rotationZ: 0,
-            transformOrigin: "50% 60%",
-            force3D: true
-          });
+          function startIdle(){
+            gsap.killTweensOf("#hero-logo-wrap");
+            gsap.set("#hero-logo-wrap", { y: 0, rotationZ: 0, transformOrigin: "50% 60%", force3D: true });
 
-          gsap.to("#hero-logo-wrap", {
-            y: -14,
-            rotationZ: -1.2,
-            duration: 2.6,
-            ease: "sine.inOut",
-            yoyo: true,
-            repeat: -1,
-            force3D: true
-          });
+            const yAmp = lowEndMobile ? 8 : 14;
+            const rotAmp = lowEndMobile ? -0.6 : -1.2;
+            const dur1 = lowEndMobile ? 3.4 : 2.6;
+            const dur2 = lowEndMobile ? 4.2 : 3.2;
 
-          gsap.to("#hero-logo-wrap", {
-            scale: 1.018,
-            duration: 3.2,
-            ease: "sine.inOut",
-            yoyo: true,
-            repeat: -1,
-            force3D: true
-          });
+            idleTweens.push(
+              gsap.to("#hero-logo-wrap", { y: -yAmp, rotationZ: rotAmp, duration: dur1, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true }),
+              gsap.to("#hero-logo-wrap", { scale: lowEndMobile ? 1.01 : 1.018, duration: dur2, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true })
+            );
 
-          /* ✅ CTA: micro pulse lento SOLO móvil */
-          if (isMobile){
-            gsap.to(".menu-trigger", {
-              scale: 1.03,
-              duration: 1.8,
-              ease: "sine.inOut",
-              yoyo: true,
-              repeat: -1,
-              repeatDelay: 4
-            });
+            if (isMobile && !lowEndMobile){
+              idleTweens.push(
+                gsap.to(".menu-trigger", { scale: 1.03, duration: 1.8, ease: "sine.inOut", yoyo: true, repeat: -1, repeatDelay: 4 })
+              );
+            }
           }
+
+          function stopIdle(){
+            idleTweens.forEach(t => t && t.kill());
+            idleTweens = [];
+            gsap.set("#hero-logo-wrap", { clearProps: "y,rotationZ,scale" });
+            gsap.set(".menu-trigger", { clearProps: "scale" });
+          }
+
+          startIdle();
+
+          // ✅ Low-end: apaga idle luego de 5s (queda clean y salva FPS)
+          if (lowEndMobile) setTimeout(stopIdle, 5000);
+
+          // ✅ si la pestaña se oculta, mata loops
+          document.addEventListener("visibilitychange", () => {
+            if (document.hidden) stopIdle();
+            else startIdle();
+          }, { passive: true });
         }, ">");
 
         setupParallax();
         setupMenu();
       }
 
-      /* ✅ FIX real: arranca sin esperar a load */
       document.addEventListener("DOMContentLoaded", () => {
         setTimeout(startIntro, 120);
       });
@@ -1187,9 +1198,7 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
-          const menuTL = gsap.timeline({
-            onComplete: () => { isAnimating = false; }
-          });
+          const menuTL = gsap.timeline({ onComplete: () => { isAnimating = false; } });
 
           menuTL
             .set(menuIntro, { visibility: "visible" })
@@ -1235,29 +1244,51 @@
         });
       }
 
+      // ✅ PERF: Parallax optimizado (móvil OFF, desktop quickTo + rAF)
       function setupParallax(){
-        document.addEventListener("mousemove", (e) => {
-          const { clientX, clientY } = e;
+        if (isMobile) return;
+
+        const layers = Array.from(document.querySelectorAll(".layer"));
+        if (!layers.length) return;
+
+        const setters = layers.map(layer => {
+          const depth = parseFloat(layer.getAttribute("data-depth") || "0");
+          return {
+            depth,
+            x: gsap.quickTo(layer, "x", { duration: 0.8, ease: "power3.out" }),
+            y: gsap.quickTo(layer, "y", { duration: 0.8, ease: "power3.out" }),
+            ry: gsap.quickTo(layer, "rotationY", { duration: 0.8, ease: "power3.out" }),
+            rx: gsap.quickTo(layer, "rotationX", { duration: 0.8, ease: "power3.out" }),
+          };
+        });
+
+        let latestX = 0, latestY = 0, raf = null;
+
+        function tick(){
+          raf = null;
           const centerX = window.innerWidth / 2;
           const centerY = window.innerHeight / 2;
-          const moveX = (clientX - centerX) / centerX;
-          const moveY = (clientY - centerY) / centerY;
+          const moveX = (latestX - centerX) / centerX;
+          const moveY = (latestY - centerY) / centerY;
 
-          document.querySelectorAll(".layer").forEach(layer => {
-            const depth = layer.getAttribute("data-depth") || 0;
-            gsap.to(layer, {
-              x: moveX * (depth * 80),
-              y: moveY * (depth * 80),
-              rotationY: moveX * (depth * 3),
-              rotationX: -moveY * (depth * 3),
-              duration: 3,
-              ease: "power3.out"
-            });
+          setters.forEach(s => {
+            const d = s.depth;
+            s.x(moveX * (d * 80));
+            s.y(moveY * (d * 80));
+            s.ry(moveX * (d * 3));
+            s.rx(-moveY * (d * 3));
           });
-        });
+        }
+
+        document.addEventListener("mousemove", (e) => {
+          latestX = e.clientX;
+          latestY = e.clientY;
+          if (!raf) raf = requestAnimationFrame(tick);
+        }, { passive: true });
       }
     }
   </script>
 </body>
 </html>
 
+	
