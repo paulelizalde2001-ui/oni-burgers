@@ -683,6 +683,12 @@
       #menu-overlay .grid.md\:grid-cols-3{
         grid-template-columns: 1fr !important;
       }
+
+      /* ✅ PERF FIX: slash glow más liviano en móvil */
+      #screen-slash-glow{
+        height: 14px !important;
+        filter: blur(1px) !important;
+      }
     }
   </style>
 </head>
@@ -922,15 +928,26 @@
 
       gsap.set(".layer", { opacity: 0 });
 
-      /* ✅ Partimos lejos/borroso para que se note */
-      gsap.set("#hero-logo-wrap", {
-        scale: 5,
-        x: -180,
-        rotationZ: -6,
-        opacity: 0,
-        force3D: true,
-        filter: isMobile ? "none" : "blur(50px)"
-      });
+      /* ✅ PERF: en móvil nada de scale brutal ni blur asesino */
+      if (isMobile){
+        gsap.set("#hero-logo-wrap", {
+          scale: 1.6,
+          x: -40,
+          rotationZ: -2,
+          opacity: 0,
+          force3D: true,
+          filter: "none"
+        });
+      } else {
+        gsap.set("#hero-logo-wrap", {
+          scale: 5,
+          x: -180,
+          rotationZ: -6,
+          opacity: 0,
+          force3D: true,
+          filter: "blur(50px)"
+        });
+      }
 
       gsap.set("#hero-text", { y: 80, opacity: 0, force3D: true });
 
@@ -946,15 +963,15 @@
 
         tl.to(".layer", { opacity: 1, duration: 0.7, stagger: 0.04, ease: "power2.out" }, "-=0.9");
 
-        /* ✅ Entrada del logo (móvil suave / PC con blur) */
+        /* ✅ Entrada del logo (móvil ultra fluida / PC con blur) */
         if (isMobile){
           tl.to("#hero-logo-wrap", {
             scale: 1,
             x: 0,
             rotationZ: 0,
             opacity: 1,
-            duration: 0.95,
-            ease: "power4.out",
+            duration: 0.55,
+            ease: "power3.out",
             force3D: true
           }, "-=0.8");
         } else {
@@ -974,6 +991,14 @@
 
         tl.to("#hero-text", { y: 0, opacity: 1, duration: 0.9, ease: "power4.out" }, "-=0.8");
         tl.to("#top-nav", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, "-=0.9");
+
+        /* ✅ PERF: apaga overlays invisibles en móvil (menos cálculos fantasmas) */
+        if (isMobile){
+          tl.add(() => {
+            gsap.set("#intro-overlay", { display: "none" });
+            gsap.set("#flash", { display: "none" });
+          }, ">");
+        }
 
         /* ✅ Idle: flotar + respirar */
         tl.add(() => {
@@ -1235,5 +1260,4 @@
   </script>
 </body>
 </html>
-
 
