@@ -1,0 +1,1239 @@
+<!DOCTYPE html>  
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <!-- ✅ Viewport mejorado (safe area iPhone) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#000000" />
+  <title>ONI - Feed the Demon</title>
+
+  <script>document.documentElement.classList.add("js");</script>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-black:#000000;
+      --oni-red:#d12d2d;
+
+      /* ✅ rojos sutiles para “ritmo visual” */
+      --oni-red-soft: rgba(209,45,45,.18);
+      --oni-red-soft2: rgba(209,45,45,.10);
+
+      --app-h: 100vh;
+    }
+
+    html, body{
+      height: 100%;
+      margin:0; padding:0;
+      overflow:hidden;
+      background-color:var(--bg-black);
+      color:#fff; font-family:'Inter',sans-serif;
+    }
+
+    .bg-ink{ position:fixed; inset:0; background:#000; z-index:0; pointer-events:none; }
+    .bg-ink::before,.bg-ink::after{ display:none; }
+
+    .druk-text{
+      font-family:'Bebas Neue', sans-serif;
+      letter-spacing:-0.04em; line-height:0.85; text-transform:uppercase;
+    }
+
+    .canvas-container{
+      position:relative;
+      width:100vw;
+      height:var(--app-h);
+      perspective:1200px;
+      overflow:hidden;
+      z-index:1;
+    }
+    .layer{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; will-change:transform,opacity; }
+
+    /* ✅ GPU boost */
+    .gpu{
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: transform, opacity;
+    }
+
+    /* ✅ WRAPPER del logo (GSAP manda aquí) */
+    #hero-logo-wrap{
+      position: relative;
+      z-index:2;
+      will-change: transform, opacity, filter;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+
+    /* ✅ halo rojo sutil detrás del logo grande */
+    #hero-logo-wrap::before{
+      content:"";
+      position:absolute;
+      inset:-14%;
+      background: radial-gradient(circle at 50% 40%, var(--oni-red-soft), transparent 62%);
+      opacity: .8;
+      filter: blur(10px);
+      z-index:-1;
+      pointer-events:none;
+    }
+
+    /* ✅ BOTÓN TOP NAV */
+    .menu-trigger{
+      background:#000;
+      color:#fff;
+      padding:1rem 2.4rem;
+      display:flex; align-items:center; gap:1.1rem;
+      cursor:pointer;
+      transition: transform .35s cubic-bezier(.23,1,.32,1),
+                  background .35s cubic-bezier(.23,1,.32,1),
+                  color .35s cubic-bezier(.23,1,.32,1),
+                  border-color .35s cubic-bezier(.23,1,.32,1);
+      pointer-events:auto;
+
+      border:2px solid rgba(255,255,255,.28);
+      position:relative;
+      overflow:hidden;
+      border-radius:14px;
+    }
+
+    .menu-trigger:hover{
+      background:#fff;
+      color:#000;
+      transform: translateY(-1px) scale(1.04);
+      border-color:#000;
+    }
+    .menu-trigger:active{ transform: translateY(0px) scale(1.01); }
+
+    .menu-trigger span{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:1.55rem;
+      letter-spacing:.16em;
+    }
+
+    .menu-trigger .noren-icon{
+      width:34px;
+      height:34px;
+      display:block;
+      opacity:.92;
+      transform: translateY(0px);
+      transition: transform .18s ease, opacity .18s ease;
+      flex: 0 0 auto;
+    }
+    .menu-trigger:hover .noren-icon{
+      opacity:1;
+      transform: translateY(1px);
+    }
+    .menu-trigger svg.noren-icon path,
+    .menu-trigger svg.noren-icon line{
+      stroke: currentColor;
+    }
+
+    /* ✅ Subtexto CTA (posición por defecto: oculto en desktop) */
+    .cta-sub{
+      display:none;
+    }
+
+    #menu-overlay{
+      position:fixed;
+      inset:0;
+      z-index:200;
+      background:#fff;
+      color:#000;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      pointer-events:none;
+      opacity:0;
+      visibility:hidden;
+      transition:none;
+    }
+    #menu-overlay.active{
+      pointer-events:auto;
+      opacity:1;
+      visibility:visible;
+    }
+    #menu-overlay.preactive{
+      pointer-events:none;
+      opacity:1;
+      visibility:visible;
+    }
+
+    .menu-sheet{
+      width:min(980px, 94vw);
+      border:1px solid rgba(255,255,255,0.14);
+      background: rgba(0,0,0,0.92);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.65);
+      border-radius: 18px;
+      overflow:hidden;
+    }
+
+    .menu-sheet-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding: 22px 26px;
+      border-bottom:1px solid rgba(255,255,255,0.12);
+    }
+    .menu-sheet-title{
+      color:#fff;
+      font-size: 2.2rem;
+      letter-spacing:-0.03em;
+    }
+
+    .menu-sheet-body{
+      padding: 18px 18px 20px;
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    .menu-side{
+      border:1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.03);
+      border-radius:14px;
+      padding:16px;
+      color: rgba(255,255,255,0.86);
+    }
+    .menu-side .mini{
+      font-size:0.75rem;
+      letter-spacing:0.22em;
+      text-transform:uppercase;
+      color: rgba(255,255,255,0.55);
+      margin-bottom:10px;
+    }
+    .menu-side .big{
+      font-family:'Bebas Neue',sans-serif;
+      font-size:2.5rem;
+      line-height:0.95;
+      color:#fff;
+      margin-bottom:10px;
+    }
+    .menu-side .row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:10px 0;
+      border-top:1px solid rgba(255,255,255,0.10);
+      font-size:0.95rem;
+    }
+    .menu-side .row:first-of-type{
+      border-top:none;
+      padding-top:0;
+    }
+
+    .menu-close{
+      color: rgba(255,255,255,0.7);
+      border:1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.04);
+      padding:10px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      transition: background .15s ease, color .15s ease, border-color .15s ease;
+      pointer-events:auto;
+    }
+    .menu-close:hover{
+      color:#fff;
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.28);
+    }
+
+    .menu-item-btn{
+      border:1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.04);
+      padding:10px 14px;
+      border-radius:12px;
+      color:#fff;
+      cursor:pointer;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      pointer-events:auto;
+      font-size: 1.1rem;
+      letter-spacing: .06em;
+      white-space:nowrap;
+    }
+    .menu-item-btn:hover{
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.28);
+    }
+    .menu-item-btn:active{ transform: translateY(0px) scale(0.98); }
+
+    .menu-big-btn{
+      border:1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.04);
+      padding:16px 14px;
+      border-radius:14px;
+      color:#fff;
+      cursor:pointer;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+      pointer-events:auto;
+      font-size: 1.4rem;
+      letter-spacing: .08em;
+      text-align:center;
+    }
+    .menu-big-btn:hover{
+      transform: translateY(-2px);
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,255,255,0.28);
+    }
+    .menu-big-btn:active{ transform: translateY(0px) scale(0.98); }
+
+    /* ✅ FIX: Intro visible al inicio (evita pantalla vacía/gris) */
+    #intro-overlay{
+      position:fixed; inset:0; background:#000; z-index:300;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:none;
+      opacity:1;
+      visibility:visible;
+    }
+
+    #flash{ position:fixed; inset:0; background:white; z-index:301; opacity:0; pointer-events:none; }
+
+    .social-icon{
+      width:auto;
+      height:auto;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:none;
+      border-radius:0;
+      background:transparent;
+      padding:2px;
+      transition: transform .18s ease, opacity .18s ease, filter .18s ease;
+      opacity:0.85;
+      pointer-events:auto;
+    }
+    .social-icon:hover{
+      opacity:1;
+      transform: translateY(-1px) scale(1.06);
+      filter: drop-shadow(0 10px 18px rgba(0,0,0,.55));
+    }
+    .social-icon:active{ transform: translateY(0px) scale(0.98); }
+
+    .social-img{
+      width:48px;
+      height:48px;
+      object-fit:contain;
+      display:block;
+      opacity:0.95;
+      image-rendering:auto;
+    }
+
+    #hero-text{ position:relative; z-index:5; }
+    #hero-logo{ position:relative; z-index:2; }
+
+    /* ✅ FEED THE DEMON en rojo (como referencia) */
+    #hero-text p{
+      color: var(--oni-red) !important;
+    }
+
+    /* ✅ Lista: números rojos + flecha roja en hover */
+    #hero-text ul .item-left{
+      display:flex;
+      gap:12px;
+      align-items:baseline;
+    }
+    #hero-text ul .num{
+      color: var(--oni-red);
+      font-weight: 900;
+      letter-spacing: .18em;
+    }
+    #hero-text ul .arrow{
+      color: rgba(255,255,255,.35);
+    }
+    #hero-text ul li:hover .arrow{
+      color: var(--oni-red);
+      opacity: 1;
+    }
+    #hero-text ul li{
+      border-bottom: 1px solid rgba(255,255,255,.08) !important;
+    }
+    #hero-text ul li:hover{
+      border-bottom-color: var(--oni-red-soft2) !important;
+    }
+
+    #menu-intro{
+      position:fixed; inset:0; z-index:250;
+      pointer-events:none;
+      opacity:0; visibility:hidden;
+      display:flex; align-items:center; justify-content:center;
+      background:transparent;
+    }
+
+    .menu-panel{
+      position:absolute;
+      left:0; width:100%; height:50%;
+      background: var(--bg-black);
+      z-index:1;
+    }
+    .menu-panel-top{ top:0; transform:translateY(-100%); }
+    .menu-panel-bottom{ bottom:0; transform:translateY(100%); }
+
+    #menu-split-text-container{
+      position:relative;
+      width:100%;
+      display:flex;
+      justify-content:center;
+      z-index:3;
+      pointer-events:none;
+    }
+
+    .split-wrapper{
+      position:relative;
+      overflow:hidden;
+      width:100%;
+      display:flex;
+      justify-content:center;
+      opacity:0;
+    }
+
+    .split-text{
+      font-size:clamp(3rem, 9vw, 10rem);
+      line-height:0.85;
+      letter-spacing:-0.05em;
+      color:#fff;
+      text-align:center;
+      margin:0;
+      white-space:nowrap;
+      width:100%;
+      pointer-events:none;
+    }
+
+    .split-top{ clip-path:inset(0 0 50% 0); }
+
+    .split-bottom{
+      clip-path:inset(50% 0 0 0);
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      transform:none;
+    }
+
+    #slash-line{
+      position:absolute;
+      top:50%;
+      left:0;
+      width:100%;
+      height:2px;
+      background:#fff;
+      z-index:4;
+      transform:scaleX(0);
+      transform-origin:left;
+      opacity:1;
+    }
+
+    #shine-line{
+      position:absolute;
+      top:50%;
+      left:0;
+      width:40%;
+      height:18px;
+      z-index:5;
+      opacity:0;
+      transform:translateX(-120%);
+      border-radius:999px;
+      filter: blur(2px);
+      background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0) 0%,
+        rgba(235,235,235,0.25) 20%,
+        rgba(255,255,255,0.98) 50%,
+        rgba(235,235,235,0.25) 80%,
+        rgba(255,255,255,0) 100%
+      );
+      pointer-events:none;
+    }
+
+    #screen-slash{
+      position: fixed;
+      left: -20vw;
+      top: 50%;
+      width: 140vw;
+      height: 4px;
+      background: #fff;
+      z-index: 260;
+      transform: translateY(-50%) scaleX(0);
+      transform-origin: left center;
+      opacity: 0;
+      pointer-events: none;
+    }
+    #screen-slash-glow{
+      position: fixed;
+      left: -20vw;
+      top: 50%;
+      width: 140vw;
+      height: 26px;
+      z-index: 261;
+      transform: translateY(-50%) scaleX(0);
+      transform-origin: left center;
+      opacity: 0;
+      pointer-events: none;
+      filter: blur(2px);
+      border-radius: 999px;
+      background: linear-gradient(
+        90deg,
+        rgba(255,255,255,0) 0%,
+        rgba(255,255,255,0.15) 25%,
+        rgba(255,255,255,0.95) 50%,
+        rgba(255,255,255,0.15) 75%,
+        rgba(255,255,255,0) 100%
+      );
+    }
+
+    #toast{
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(0,0,0,0.85);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      font-size: 0.9rem;
+      letter-spacing: 0.06em;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 9999;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    #toast.show{
+      opacity: 1;
+      transform: translateX(-50%) translateY(0px);
+    }
+
+    /* ✅ Suaviza el “split open” */
+    .split-text,
+    .split-wrapper,
+    .menu-panel,
+    #slash-line,
+    #screen-slash,
+    #screen-slash-glow,
+    #shine-line{
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: transform, opacity;
+    }
+
+    /* ✅ MOBILE: simetría nav + CTA más importante */
+    @media (max-width: 767px){
+      /* ✅ conecta CTA con hero (ancla visual) */
+      #top-nav{
+        height: 84px !important;
+        padding-left: 18px !important;
+        padding-right: 18px !important;
+        align-items: center !important;
+        background: linear-gradient(
+          to bottom,
+          rgba(0,0,0,.85),
+          rgba(0,0,0,.65),
+          transparent
+        );
+      }
+
+      .menu-trigger{
+        padding: 0.7rem 1.15rem;
+        border-radius: 12px;
+        position: relative;
+        top: -1px;
+
+        /* ✅ CTA más importante en móvil */
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,.25),
+          0 12px 40px rgba(0,0,0,.6);
+      }
+
+      /* ✅ halo sutil (no neón) */
+      .menu-trigger::after{
+        content:"";
+        position:absolute;
+        inset:-6px;
+        border-radius:16px;
+        background: radial-gradient(
+          circle at center,
+          rgba(255,255,255,.18),
+          transparent 65%
+        );
+        opacity:.55;
+        pointer-events:none;
+      }
+
+      /* ✅ subtexto del CTA */
+      .cta-sub{
+        display:block;
+        position:absolute;
+        bottom:-18px;
+        left:50%;
+        transform:translateX(-50%);
+        font-size:9px;
+        letter-spacing:.35em;
+        text-transform:uppercase;
+        opacity:.55;
+        pointer-events:none;
+        white-space:nowrap;
+      }
+
+      .menu-trigger span{
+        font-size: 1.15rem;
+        letter-spacing: .14em;
+      }
+      .menu-trigger .noren-icon{
+        width: 26px;
+        height: 26px;
+      }
+
+      /* ✅ Kanji más grande + centrado óptico */
+      #nav-logo{
+        width: 74px !important;
+        height: 74px !important;
+        transform: translateY(2px);
+      }
+
+      #top-nav .druk-text.text-4xl{
+        display:none !important;
+      }
+
+      #parallax-scene .layer[data-depth="0.2"] > div{
+        display:flex !important;
+        flex-direction:column !important;
+        justify-content:center !important;
+        align-items:center !important;
+        padding-left: 6vw !important;
+        padding-right: 6vw !important;
+        padding-top: 92px !important;
+        padding-bottom: 26px !important;
+        gap: 10px !important;
+        height: 100% !important;
+      }
+
+      #parallax-scene .layer[data-depth="0.2"] > div > div:first-child{
+        justify-content: center !important;
+        padding-right: 0 !important;
+        width: 100% !important;
+      }
+
+      #hero-logo-wrap{
+        height: 54vh !important;
+        max-width: 92vw !important;
+        display:flex !important;
+        justify-content:center !important;
+        align-items:center !important;
+        margin: 0 !important;
+      }
+
+      #hero-logo{
+        height: 100% !important;
+        width: auto !important;
+        max-width: 92vw !important;
+        filter: drop-shadow(0 40px 80px rgba(0,0,0,0.45)) !important;
+      }
+
+      #hero-text{
+        align-items: center !important;
+        text-align: center !important;
+        width: 100% !important;
+      }
+
+      #hero-text h2{
+        letter-spacing: 0.55em !important;
+        margin-bottom: 10px !important;
+      }
+
+      #hero-text h1{
+        font-size: 5.8rem !important;
+        margin-top: -6px !important;
+        margin-bottom: 12px !important;
+      }
+
+      #hero-text p{
+        font-size: 15px !important;
+        letter-spacing: 0.34em !important;
+        margin-bottom: 18px !important;
+      }
+
+      #hero-text ul{
+        max-width: 92vw !important;
+        width: 92vw !important;
+        font-size: 11px !important;
+        letter-spacing: 0.26em !important;
+      }
+
+      #hero-text ul li{
+        padding-bottom: 14px !important;
+      }
+      #hero-text ul li:hover{
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+      }
+
+      .menu-sheet{
+        width: min(980px, 92vw) !important;
+        border-radius: 16px !important;
+      }
+      .menu-sheet-header{
+        padding: 18px 18px !important;
+      }
+      .menu-sheet-title{
+        font-size: 1.8rem !important;
+      }
+
+      #menu-overlay .grid.md\:grid-cols-3{
+        grid-template-columns: 1fr !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-ink"></div>
+  <div id="flash"></div>
+  <div id="toast">Copiado ✅</div>
+
+  <div id="intro-overlay">
+    <div class="text-center">
+      <h1 class="text-7xl md:text-[13rem] druk-text opacity-0 scale-150 text-white" id="intro-title">ONI BURGERS</h1>
+    </div>
+  </div>
+
+  <div id="menu-intro">
+    <div class="menu-panel menu-panel-top"></div>
+    <div class="menu-panel menu-panel-bottom"></div>
+
+    <div id="menu-split-text-container">
+      <div class="split-wrapper" id="split-wrapper">
+        <h2 class="druk-text split-text split-top">SMASH SIN PIEDAD</h2>
+        <h2 class="druk-text split-text split-bottom">SMASH SIN PIEDAD</h2>
+      </div>
+    </div>
+
+    <div id="slash-line"></div>
+    <div id="shine-line"></div>
+  </div>
+
+  <div id="screen-slash"></div>
+  <div id="screen-slash-glow"></div>
+
+  <div id="menu-overlay">
+    <div class="menu-sheet">
+      <div class="menu-sheet-header">
+        <div class="menu-sheet-title druk-text">MENÚ</div>
+        <button id="close-menu" class="menu-close druk-text">Cerrar [X]</button>
+      </div>
+
+      <div class="menu-sheet-body">
+        <div class="grid md:grid-cols-2 gap-4">
+          <div class="menu-side">
+            <div class="mini">COMBOS</div>
+            <div class="big">FULL DEMON</div>
+
+            <div class="row">
+              <span>Combo 1 — Classic</span>
+              <button class="menu-item-btn druk-text" data-item="Combo 1 (Classic) + papas + cola">PEDIR</button>
+            </div>
+            <div class="row">
+              <span>Combo 2 — Shogun</span>
+              <button class="menu-item-btn druk-text" data-item="Combo 2 (Shogun) + papas + cola">PEDIR</button>
+            </div>
+            <div class="row">
+              <span>Combo 3 — Truffle</span>
+              <button class="menu-item-btn druk-text" data-item="Combo 3 (Truffle) + papas + cola">PEDIR</button>
+            </div>
+
+            <div style="margin-top:12px; font-size:.85rem; color:rgba(255,255,255,.65); line-height:1.35;">
+              Tip: “PEDIR” arma el mensaje listo.
+            </div>
+          </div>
+
+          <div class="menu-side">
+            <div class="mini">BURGERS</div>
+            <div class="big">SMASH SIN PIEDAD</div>
+
+            <div class="row">
+              <span>The Classic ONI</span>
+              <button class="menu-item-btn druk-text" data-item="Burger The Classic ONI">PEDIR</button>
+            </div>
+            <div class="row">
+              <span>Shogun Truffle</span>
+              <button class="menu-item-btn druk-text" data-item="Burger Shogun Truffle">PEDIR</button>
+            </div>
+            <div class="row">
+              <span>🔥 Special (Limited)</span>
+              <button class="menu-item-btn druk-text" data-item="Burger Special (Limited)">PEDIR</button>
+            </div>
+
+            <div style="margin-top:12px; font-size:.85rem; color:rgba(255,255,255,.65); line-height:1.35;">
+              Luego eliges modo abajo (Pickup / Delivery).
+            </div>
+          </div>
+
+          <div class="menu-side">
+            <div class="mini">SIDES</div>
+            <div class="big">EXTRAS</div>
+
+            <div class="row">
+              <span>Papas</span>
+              <button class="menu-item-btn druk-text" data-item="Papas (side)">AGREGAR</button>
+            </div>
+            <div class="row">
+              <span>Coleslaw</span>
+              <button class="menu-item-btn druk-text" data-item="Coleslaw (side)">AGREGAR</button>
+            </div>
+            <div class="row">
+              <span>Salsa extra</span>
+              <button class="menu-item-btn druk-text" data-item="Salsa extra">AGREGAR</button>
+            </div>
+          </div>
+
+          <div class="menu-side">
+            <div class="mini">NOTAS</div>
+            <div class="big">TU ORDEN</div>
+
+            <div style="font-size:.95rem; color:rgba(255,255,255,.75); line-height:1.4;">
+              Añade notas en WhatsApp:
+              <br><br>
+              <span style="opacity:.7;">Ej:</span> sin pepinillos • bien cocida • extra salsa
+            </div>
+
+            <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+              <span style="border:1px solid rgba(255,255,255,.12); padding:8px 10px; border-radius:12px; color:rgba(255,255,255,.65); font-size:.85rem;">
+                Sin pepinillos
+              </span>
+              <span style="border:1px solid rgba(255,255,255,.12); padding:8px 10px; border-radius:12px; color:rgba(255,255,255,.65); font-size:.85rem;">
+                Bien cocida
+              </span>
+              <span style="border:1px solid rgba(255,255,255,.12); padding:8px 10px; border-radius:12px; color:rgba(255,255,255,.65); font-size:.85rem;">
+                Extra salsa
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-3 mt-1">
+          <button id="btn-pickup" class="menu-big-btn druk-text">PIDE Y RECOGE</button>
+          <button id="btn-delivery" class="menu-big-btn druk-text">DELIVERY</button>
+          <button id="btn-questions" class="menu-big-btn druk-text">PREGUNTAS / DUDAS</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <nav id="top-nav" class="fixed top-0 left-0 w-full h-32 px-10 flex justify-between items-center z-50 opacity-0 -translate-y-10">
+    <div class="flex gap-12 items-center">
+      <img id="nav-logo" src="logo-oni-nav.png" alt="ONI Logo Nav" class="w-28 h-28 object-contain">
+      <span class="druk-text text-4xl tracking-normal text-white">ONI BURGERS</span>
+
+      <div class="hidden md:flex gap-6 items-center">
+        <a href="#" aria-label="Instagram" class="social-icon">
+          <img class="social-img" src="instagram.png" alt="Instagram" />
+        </a>
+        <a href="#" aria-label="TikTok" class="social-icon">
+          <img class="social-img" src="tiktok.png" alt="TikTok" />
+        </a>
+        <a href="#" aria-label="WhatsApp" class="social-icon">
+          <img class="social-img" src="whatsapp.png" alt="WhatsApp" />
+        </a>
+      </div>
+    </div>
+
+    <div class="flex gap-8 items-center">
+      <button id="open-menu" class="menu-trigger" aria-label="Pide aquí">
+        <svg class="noren-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="5" y1="7" x2="19" y2="7"></line>
+          <path d="M6.5 7v10.5c0 .8.6 1.5 1.4 1.5h1.6V12.2h1.0V19h1.0v-6.8h1.0V19h1.0V12.2h1.0V19h1.6c.8 0 1.4-.7 1.4-1.5V7"></path>
+          <line x1="10" y1="11.3" x2="10" y2="19"></line>
+          <line x1="14" y1="11.3" x2="14" y2="19"></line>
+        </svg>
+
+        <span>PIDE AQUÍ</span>
+        <small class="cta-sub">Pickup / Delivery</small>
+      </button>
+    </div>
+  </nav>
+
+  <div class="canvas-container" id="parallax-scene">
+    <div class="layer"></div>
+
+    <div class="layer" data-depth="0.2">
+      <div class="w-full h-full grid grid-cols-2 items-center px-[10vw] gap-[3vw]">
+        <div class="flex justify-end pr-10">
+          <!-- ✅ WRAPPER animado -->
+          <div id="hero-logo-wrap" class="h-[84vh] w-auto max-w-none">
+            <img id="hero-logo" src="logo-oni-hero.png" alt="ONI Logo Hero"
+                 class="h-full w-auto max-w-none"
+                 style="filter: drop-shadow(0 50px 100px rgba(0,0,0,0.45));">
+          </div>
+        </div>
+
+        <div id="hero-text" class="flex flex-col items-start">
+          <h2 class="text-[11px] font-black uppercase tracking-[0.8em] mb-6 text-white/40">
+            Dark Kitchen • Tokyo Spirit
+          </h2>
+
+          <h1 class="text-[12rem] md:text-[18rem] druk-text leading-none mb-10 text-white">ONI</h1>
+
+          <p class="text-[22px] text-white font-black uppercase tracking-[0.5em] italic mb-14">FEED THE DEMON</p>
+
+          <ul class="flex flex-col gap-6 text-[12px] uppercase tracking-[0.4em] font-black w-full max-w-md text-white pointer-events-auto">
+            <li class="cursor-pointer flex justify-between pb-5 group hover:px-6 transition-all duration-500">
+              <span class="item-left">
+                <span class="num">01.</span>
+                <span>THE CLASSIC ONI</span>
+              </span>
+              <span class="arrow opacity-30 group-hover:opacity-100">→</span>
+            </li>
+
+            <li class="cursor-pointer flex justify-between pb-5 group hover:px-6 transition-all duration-500">
+              <span class="item-left">
+                <span class="num">02.</span>
+                <span>SHOGUN TRUFFLE</span>
+              </span>
+              <span class="arrow opacity-30 group-hover:opacity-100">→</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function setAppHeight(){
+      document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+    }
+    setAppHeight();
+    window.addEventListener('resize', setAppHeight);
+
+    if (typeof window.gsap === "undefined") {
+      const overlay = document.getElementById("intro-overlay");
+      if (overlay) { overlay.style.opacity = "0"; overlay.style.visibility = "hidden"; }
+    } else {
+      gsap.ticker.lagSmoothing(0);
+      gsap.defaults({ overwrite: "auto" });
+
+      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+
+      document.getElementById("hero-logo-wrap")?.classList.add("gpu");
+      document.getElementById("hero-logo")?.classList.add("gpu");
+      document.getElementById("hero-text")?.classList.add("gpu");
+      document.getElementById("intro-title")?.classList.add("gpu");
+      document.getElementById("flash")?.classList.add("gpu");
+
+      gsap.set(".layer", { opacity: 0 });
+
+      /* ✅ Partimos lejos/borroso para que se note */
+      gsap.set("#hero-logo-wrap", {
+        scale: 5,
+        x: -180,
+        rotationZ: -6,
+        opacity: 0,
+        force3D: true,
+        filter: isMobile ? "none" : "blur(50px)"
+      });
+
+      gsap.set("#hero-text", { y: 80, opacity: 0, force3D: true });
+
+      function startIntro(){
+        const tl = gsap.timeline();
+
+        tl.to("#intro-title", { opacity: 1, scale: 1, duration: 0.7, ease: "expo.out" });
+        tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.25, ease: "power4.in" }, "+=0.35");
+        tl.to("#flash", { opacity: 1, duration: 0.05 });
+        tl.to("#intro-overlay", { opacity: 0, duration: 0.6, ease: "expo.inOut" }, "-=0.05");
+        tl.to("#flash", { opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.45");
+        tl.set("#intro-overlay", { visibility: "hidden" });
+
+        tl.to(".layer", { opacity: 1, duration: 0.7, stagger: 0.04, ease: "power2.out" }, "-=0.9");
+
+        /* ✅ Entrada del logo (móvil suave / PC con blur) */
+        if (isMobile){
+          tl.to("#hero-logo-wrap", {
+            scale: 1,
+            x: 0,
+            rotationZ: 0,
+            opacity: 1,
+            duration: 0.95,
+            ease: "power4.out",
+            force3D: true
+          }, "-=0.8");
+        } else {
+          tl.to("#hero-logo-wrap", {
+            scale: 1,
+            x: 0,
+            rotationZ: 0,
+            opacity: 1,
+            duration: 1.1,
+            ease: "expo.out",
+            filter: "blur(0px)",
+            force3D: true
+          }, "-=0.8");
+
+          tl.set("#hero-logo-wrap", { filter: "none" }, ">-=0.05");
+        }
+
+        tl.to("#hero-text", { y: 0, opacity: 1, duration: 0.9, ease: "power4.out" }, "-=0.8");
+        tl.to("#top-nav", { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, "-=0.9");
+
+        /* ✅ Idle: flotar + respirar */
+        tl.add(() => {
+          gsap.killTweensOf("#hero-logo-wrap");
+
+          gsap.set("#hero-logo-wrap", {
+            y: 0,
+            rotationZ: 0,
+            transformOrigin: "50% 60%",
+            force3D: true
+          });
+
+          gsap.to("#hero-logo-wrap", {
+            y: -14,
+            rotationZ: -1.2,
+            duration: 2.6,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
+            force3D: true
+          });
+
+          gsap.to("#hero-logo-wrap", {
+            scale: 1.018,
+            duration: 3.2,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
+            force3D: true
+          });
+
+          /* ✅ CTA: micro pulse lento SOLO móvil */
+          if (isMobile){
+            gsap.to(".menu-trigger", {
+              scale: 1.03,
+              duration: 1.8,
+              ease: "sine.inOut",
+              yoyo: true,
+              repeat: -1,
+              repeatDelay: 4
+            });
+          }
+        }, ">");
+
+        setupParallax();
+        setupMenu();
+      }
+
+      /* ✅ FIX real: arranca sin esperar a load */
+      document.addEventListener("DOMContentLoaded", () => {
+        setTimeout(startIntro, 120);
+      });
+
+      const WHATSAPP_NUMBER = "";
+
+      const toastEl = document.getElementById("toast");
+      let toastTimer = null;
+
+      function toast(msg){
+        if (!toastEl) return;
+        toastEl.textContent = msg;
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1400);
+      }
+
+      async function copyToClipboard(text){
+        try{
+          await navigator.clipboard.writeText(text);
+          toast("Mensaje copiado ✅");
+        }catch(e){
+          const ta = document.createElement("textarea");
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand("copy");
+          document.body.removeChild(ta);
+          toast("Copiado ✅");
+        }
+      }
+
+      function openWhatsApp(message){
+        if (!WHATSAPP_NUMBER || WHATSAPP_NUMBER.trim().length < 6){
+          copyToClipboard(message);
+          return;
+        }
+        const url = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+        window.open(url, "_blank");
+      }
+
+      function wireMenuButtons(){
+        const pickup = document.getElementById("btn-pickup");
+        const delivery = document.getElementById("btn-delivery");
+        const questions = document.getElementById("btn-questions");
+
+        if (pickup) pickup.onclick = () => {
+          openWhatsApp(
+            "Hola ONI 👹🔥 quiero *PIDE Y RECOGE*.\n\nMi pedido es:\n- \n\nNombre:\nHora aproximada de retiro:\nNotas:"
+          );
+        };
+
+        if (delivery) delivery.onclick = () => {
+          openWhatsApp(
+            "Hola ONI 👹🔥 quiero *DELIVERY*.\n\nMi pedido es:\n- \n\nDirección:\nReferencia:\nForma de pago:\nNotas:"
+          );
+        };
+
+        if (questions) questions.onclick = () => {
+          openWhatsApp("Hola ONI 👹 tengo una pregunta:\n\n");
+        };
+
+        document.querySelectorAll(".menu-item-btn").forEach(btn => {
+          btn.onclick = () => {
+            const item = btn.getAttribute("data-item") || "";
+            openWhatsApp(
+              `Hola ONI 👹🔥 quiero pedir:\n- ${item}\n\nModo: (Pide y recoge / Delivery)\nNombre:\nDirección (si es delivery):\nNotas:`
+            );
+          };
+        });
+      }
+
+      function setupMenu(){
+        const openBtn = document.getElementById("open-menu");
+        const closeBtn = document.getElementById("close-menu");
+        const menuOverlay = document.getElementById("menu-overlay");
+
+        const menuIntro = document.getElementById("menu-intro");
+        const splitWrapper = document.getElementById("split-wrapper");
+        const slashLine = document.getElementById("slash-line");
+        const shineLine = document.getElementById("shine-line");
+        const panelTop = document.querySelector(".menu-panel-top");
+        const panelBottom = document.querySelector(".menu-panel-bottom");
+
+        const screenSlash = document.getElementById("screen-slash");
+        const screenSlashGlow = document.getElementById("screen-slash-glow");
+
+        let isAnimating = false;
+
+        function playClose(){
+          if (isAnimating) return;
+          if (!menuOverlay.classList.contains("active")) return;
+
+          isAnimating = true;
+          menuOverlay.classList.add("preactive");
+
+          gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "right center" });
+          gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "right center" });
+
+          const closeTL = gsap.timeline({
+            onComplete: () => {
+              menuOverlay.classList.remove("active");
+              menuOverlay.classList.remove("preactive");
+              gsap.set(menuOverlay, { clearProps: "opacity" });
+              isAnimating = false;
+            }
+          });
+
+          closeTL
+            .to(menuOverlay, { opacity: 0, duration: 0.18, ease: "power1.out" }, 0)
+            .to(screenSlash, { opacity: 1, duration: 0.01 }, 0.02)
+            .to(screenSlashGlow, { opacity: 1, duration: 0.01 }, 0.02)
+            .to(screenSlash, { scaleX: 1, duration: 0.12, ease: "expo.in" }, 0.02)
+            .to(screenSlashGlow, { scaleX: 1, duration: 0.16, ease: "expo.in" }, 0.02)
+            .to(screenSlashGlow, { opacity: 0, duration: 0.12, ease: "power2.out" }, 0.14)
+            .to(screenSlash, { opacity: 0, duration: 0.14, ease: "power2.out" }, 0.14);
+        }
+
+        openBtn.addEventListener("click", () => {
+          if (isAnimating || menuOverlay.classList.contains("active")) return;
+          isAnimating = true;
+
+          menuOverlay.classList.remove("active");
+          menuOverlay.classList.remove("preactive");
+          gsap.set(menuOverlay, { clearProps: "opacity" });
+
+          gsap.set(menuIntro, { opacity: 0, visibility: "hidden" });
+          gsap.set(splitWrapper, { opacity: 0, x: 0 });
+          gsap.set(".split-top, .split-bottom", { x: 0, xPercent: 0, force3D: true });
+
+          gsap.set(slashLine, { scaleX: 0, opacity: 0 });
+
+          gsap.set(shineLine, { opacity: 0, x: "-120%" });
+          gsap.set(panelTop, { y: "-100%" });
+          gsap.set(panelBottom, { y: "100%" });
+
+          gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
+          gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
+
+          const menuTL = gsap.timeline({
+            onComplete: () => { isAnimating = false; }
+          });
+
+          menuTL
+            .set(menuIntro, { visibility: "visible" })
+            .to(menuIntro, { opacity: 1, duration: 0.10, ease: "power1.out" })
+            .to(panelTop, { y: "0%", duration: 0.32, ease: "expo.out", force3D: true })
+            .to(panelBottom, { y: "0%", duration: 0.32, ease: "expo.out", force3D: true }, "<")
+            .to(splitWrapper, { opacity: 1, duration: 0.14, ease: "power2.out" })
+            .to({}, { duration: 0.18 })
+            .set(shineLine, { opacity: 1, x: "-120%" })
+            .to(shineLine, { x: "220%", duration: 0.22, ease: "power2.out", force3D: true })
+            .to(shineLine, { opacity: 0, duration: 0.10, ease: "power1.out" }, "-=0.06")
+            .to(splitWrapper, { x: 2, repeat: 5, yoyo: true, duration: 0.045, ease: "none", force3D: true })
+            .to(splitWrapper, { x: 0, duration: 0.02 })
+
+            .to(screenSlash, { opacity: 1, duration: 0.01 }, "<")
+            .to(screenSlashGlow, { opacity: 1, duration: 0.01 }, "<")
+            .to(screenSlash, { scaleX: 1, duration: 0.12, ease: "expo.in" }, "<")
+            .to(screenSlashGlow, { scaleX: 1, duration: 0.16, ease: "expo.in" }, "<")
+            .to({}, { duration: 0.06 })
+            .to(screenSlashGlow, { opacity: 0, duration: 0.12, ease: "power2.out" }, "<")
+            .to(screenSlash, { opacity: 0, duration: 0.14, ease: "power2.out" }, "<")
+
+            .to({}, { duration: 0.22 })
+
+            .to(".split-top", { xPercent: 130, force3D: true, duration: 0.40, ease: "expo.in" }, "-=0.10")
+            .to(".split-bottom", { xPercent: -130, force3D: true, duration: 0.40, ease: "expo.in" }, "<")
+
+            .to(panelTop, { y: "-100%", duration: 0.60, ease: "expo.inOut", force3D: true }, "-=0.08")
+            .to(panelBottom, { y: "100%", duration: 0.60, ease: "expo.inOut", force3D: true }, "<")
+            .add(() => menuOverlay.classList.add("preactive"), "-=0.35")
+            .to(menuIntro, { opacity: 0, duration: 0.12, ease: "power1.inOut" }, "-=0.25")
+            .add(() => {
+              menuOverlay.classList.remove("preactive");
+              menuOverlay.classList.add("active");
+              wireMenuButtons();
+            }, "-=0.05")
+            .set(menuIntro, { visibility: "hidden" }, "<+=0.02");
+        });
+
+        closeBtn.addEventListener("click", playClose);
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") playClose();
+        });
+      }
+
+      function setupParallax(){
+        document.addEventListener("mousemove", (e) => {
+          const { clientX, clientY } = e;
+          const centerX = window.innerWidth / 2;
+          const centerY = window.innerHeight / 2;
+          const moveX = (clientX - centerX) / centerX;
+          const moveY = (clientY - centerY) / centerY;
+
+          document.querySelectorAll(".layer").forEach(layer => {
+            const depth = layer.getAttribute("data-depth") || 0;
+            gsap.to(layer, {
+              x: moveX * (depth * 80),
+              y: moveY * (depth * 80),
+              rotationY: moveX * (depth * 3),
+              rotationX: -moveY * (depth * 3),
+              duration: 3,
+              ease: "power3.out"
+            });
+          });
+        });
+      }
+    }
+  </script>
+</body>
+</html>
+
+
