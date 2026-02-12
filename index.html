@@ -302,7 +302,20 @@
       visibility:visible;
     }
 
-    #flash{ position:fixed; inset:0; background:white; z-index:301; opacity:0; pointer-events:none; }
+    /* ✅ PERF: flash optimizado */
+    #flash{
+      position:fixed;
+      inset:0;
+      background:white;
+      z-index:301;
+      opacity:0;
+      pointer-events:none;
+      will-change: opacity;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      contain: paint;
+      isolation: isolate;
+    }
 
     .social-icon{
       width:auto;
@@ -977,7 +990,6 @@
       // ✅ PERF clave: espera a que las imágenes decodifiquen ANTES del boom (evita el “frame-drop” feo)
       function waitImg(img, timeoutMs = 1200){
         if (!img) return Promise.resolve();
-        const done = () => Promise.resolve();
 
         const pLoad = img.complete
           ? Promise.resolve()
@@ -995,7 +1007,7 @@
       }
 
       async function startIntro(){
-        // pre-decode imágenes críticas (solo móvil, porque en PC ya te corre fino)
+        // pre-decode imágenes críticas (solo móvil)
         if (isMobile){
           await Promise.all([
             waitImg(document.getElementById("hero-logo"), lowEndMobile ? 900 : 1200),
@@ -1005,25 +1017,34 @@
 
         const tl = gsap.timeline();
 
-        // en móvil, durante el boom: quita el filtro del logo y lo devuelves al final (visual igual, menos drop de FPS)
+        // en móvil, durante el boom: quita el filtro del logo y lo devuelves al final
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: "none" }, 0);
         }
 
         tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.55 : 0.7, ease: E_IN });
         tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.22, ease: "power4.in" }, "+=0.28");
-        tl.to("#flash", { opacity: 1, duration: 0.05 });
-        tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
-        tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
+
+        // ✅ PERF: en móviles el flash es el pico. Lo hacemos “snap” y evitamos solapar mil cosas.
+        if (isMobile){
+          tl.set("#flash", { opacity: 1 }, ">");
+          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.32 : 0.42, ease: "power2.out" }, "<");
+          tl.set("#flash", { opacity: 0 }, ">+=0.06");
+        } else {
+          tl.to("#flash", { opacity: 1, duration: 0.05 });
+          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
+          tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
+        }
+
         tl.set("#intro-overlay", { visibility: "hidden" });
 
-        // ✅ PERF: en móvil baja el stagger (muchos layers + opacity = repaints)
+        // ✅ PERF: en móvil NO revelamos layers durante el flash (ahí es donde se muere el FPS)
         tl.to(".layer", {
           opacity: 1,
           duration: lowEndMobile ? 0.28 : (isMobile ? 0.45 : 0.7),
           stagger: lowEndMobile ? 0 : (isMobile ? 0.01 : 0.04),
           ease: "power2.out"
-        }, "-=0.75");
+        }, isMobile ? ">-=0.02" : "-=0.75");
 
         if (isMobile){
           tl.to("#hero-logo-wrap", {
@@ -1053,7 +1074,7 @@
         tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.62 : 0.9, ease: "power4.out" }, "-=0.62");
         tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.48 : 0.7, ease: "power3.out" }, "-=0.72");
 
-        // devuelve el filtro real una vez que ya todo está quieto
+        // devuelve el filtro real una vez que ya todo está estable
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: HERO_FILTER }, ">-=0.02");
         }
@@ -1099,10 +1120,9 @@
 
           startIdle();
 
-          // ✅ Low-end: apaga idle luego de 5s (queda clean y salva FPS)
+          // ✅ Low-end: apaga idle luego de 5s
           if (lowEndMobile) setTimeout(stopIdle, 5000);
 
-          // ✅ si la pestaña se oculta, mata loops
           document.addEventListener("visibilitychange", () => {
             if (document.hidden) stopIdle();
             else startIdle();
@@ -1114,7 +1134,6 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-        // en móvil: un pelín más de delay para que el primer frame ya tenga assets listos
         setTimeout(startIntro, isMobile ? 160 : 120);
       });
 
@@ -1201,6 +1220,13 @@
         const screenSlash = document.getElementById("screen-slash");
         const screenSlashGlow = document.getElementById("screen-slash-glow");
 
+        // ✅ PERF: low-end móvil: apaga glow/shine (misma idea, menos costo)
+        const liteSlash = isMobile && lowEndMobile;
+        if (liteSlash){
+          gsap.set("#screen-slash-glow", { opacity: 0, display: "none" });
+          gsap.set("#shine-line", { opacity: 0, display: "none" });
+        }
+
         let isAnimating = false;
 
         function playClose(){
@@ -1253,12 +1279,12 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
-          // ✅ PERF: en móvil, reduce la vibración (el repeat con x suele ser “jank generator”)
-          const shakeRepeats = isMobile ? (lowEndMobile ? 2 : 3) : 5;
-          const shakeDur = isMobile ? (lowEndMobile ? 0.05 : 0.045) : 0.045;
+          // ✅ PERF: en móvil reduce vibración; low-end casi nada
+          const shakeRepeats = isMobile ? (lowEndMobile ? 0 : 2) : 5;
+          const shakeDur = isMobile ? (lowEndMobile ? 0.055 : 0.05) : 0.045;
 
-          const panelDur = isMobile ? (lowEndMobile ? 0.26 : 0.30) : 0.32;
-          const splitOutDur = isMobile ? (lowEndMobile ? 0.34 : 0.38) : 0.40;
+          const panelDur = isMobile ? (lowEndMobile ? 0.24 : 0.28) : 0.32;
+          const splitOutDur = isMobile ? (lowEndMobile ? 0.30 : 0.34) : 0.40;
 
           const menuTL = gsap.timeline({ onComplete: () => { isAnimating = false; } });
 
@@ -1268,10 +1294,16 @@
             .to(panelTop, { y: "0%", duration: panelDur, ease: "expo.out", force3D: true })
             .to(panelBottom, { y: "0%", duration: panelDur, ease: "expo.out", force3D: true }, "<")
             .to(splitWrapper, { opacity: 1, duration: 0.14, ease: "power2.out" })
-            .to({}, { duration: isMobile ? 0.14 : 0.18 })
-            .set(shineLine, { opacity: 1, x: "-120%" })
-            .to(shineLine, { x: "220%", duration: isMobile ? 0.20 : 0.22, ease: "power2.out", force3D: true })
-            .to(shineLine, { opacity: 0, duration: 0.10, ease: "power1.out" }, "-=0.06")
+            .to({}, { duration: isMobile ? 0.14 : 0.18 });
+
+          if (!liteSlash){
+            menuTL
+              .set(shineLine, { opacity: 1, x: "-120%" })
+              .to(shineLine, { x: "220%", duration: isMobile ? 0.18 : 0.22, ease: "power2.out", force3D: true })
+              .to(shineLine, { opacity: 0, duration: 0.10, ease: "power1.out" }, "-=0.06");
+          }
+
+          menuTL
             .to(splitWrapper, { x: 2, repeat: shakeRepeats, yoyo: true, duration: shakeDur, ease: "none", force3D: true })
             .to(splitWrapper, { x: 0, duration: 0.02 })
 
@@ -1353,4 +1385,3 @@
 </body>
 </html>
 
-	
