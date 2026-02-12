@@ -2,7 +2,6 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <!-- ✅ Viewport mejorado (safe area iPhone) -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#000000" />
   <title>ONI - Feed the Demon</title>
@@ -14,11 +13,10 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
 
   <style>
-    :root {
+    :root{
       --bg-black:#000000;
       --oni-red:#d12d2d;
 
-      /* ✅ rojos sutiles para “ritmo visual” */
       --oni-red-soft: rgba(209,45,45,.18);
       --oni-red-soft2: rgba(209,45,45,.10);
 
@@ -50,20 +48,23 @@
       z-index:1;
     }
 
-    /* ✅ FIX: evita “halo cuadrado” (contain:paint clipea pseudo-elementos) */
-    .canvas-container{ contain: layout paint; }
+    /* ✅ IMPORTANT: quitamos contain:paint (en muchos Android provoca “1 frame”/compositing raro) */
+    .canvas-container{ contain: layout; }
     #hero-logo-wrap, #hero-text{ contain: layout; }
 
-    .layer{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; will-change:transform,opacity; }
+    .layer{
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      pointer-events:none;
+      will-change:transform,opacity;
+    }
 
-    /* ✅ GPU boost */
     .gpu{
       transform: translateZ(0);
       backface-visibility: hidden;
       will-change: transform, opacity;
     }
 
-    /* ✅ WRAPPER del logo (GSAP manda aquí) */
     #hero-logo-wrap{
       position: relative;
       z-index:2;
@@ -73,21 +74,19 @@
       isolation: isolate;
     }
 
-    /* ✅ halo rojo sutil detrás del logo grande (YA NO SE VE CUADRADO) */
     #hero-logo-wrap::before{
       content:"";
       position:absolute;
       inset:-18%;
-      border-radius:999px; /* ✅ clave */
+      border-radius:999px;
       background: radial-gradient(circle at 50% 40%, var(--oni-red-soft), transparent 70%);
-      opacity: .55;        /* ✅ menos “mancha” */
+      opacity: .55;
       filter: blur(14px);
       z-index:-1;
       pointer-events:none;
       transform: translateZ(0);
     }
 
-    /* ✅ PERF: low-end reduce filtros */
     .low-end #hero-logo-wrap::before{
       filter: blur(6px) !important;
       opacity: .35 !important;
@@ -96,7 +95,6 @@
       filter: drop-shadow(0 14px 30px rgba(0,0,0,0.32)) !important;
     }
 
-    /* ✅ BOTÓN TOP NAV */
     .menu-trigger{
       background:#000;
       color:#fff;
@@ -147,7 +145,6 @@
       stroke: currentColor;
     }
 
-    /* ✅ Subtexto CTA (posición por defecto: oculto en desktop) */
     .cta-sub{ display:none; }
 
     #menu-overlay{
@@ -295,7 +292,6 @@
     }
     .menu-big-btn:active{ transform: translateY(0px) scale(0.98); }
 
-    /* ✅ FIX: Intro visible al inicio (evita pantalla vacía/gris) */
     #intro-overlay{
       position:fixed; inset:0; background:#000; z-index:300;
       display:flex; align-items:center; justify-content:center;
@@ -304,7 +300,7 @@
       visibility:visible;
     }
 
-    /* ✅ PERF: flash optimizado (DESKTOP USA ESTO) */
+    /* ✅ Flash ÚNICO y SIMPLE (móvil + desktop). Nada de body::after */
     #flash{
       position:fixed;
       inset:0;
@@ -315,8 +311,6 @@
       will-change: opacity;
       transform: translateZ(0);
       backface-visibility: hidden;
-      contain: paint;
-      isolation: isolate;
     }
 
     .social-icon{
@@ -352,10 +346,8 @@
     #hero-text{ position:relative; z-index:5; }
     #hero-logo{ position:relative; z-index:2; }
 
-    /* ✅ FEED THE DEMON en rojo (como referencia) */
     #hero-text p{ color: var(--oni-red) !important; }
 
-    /* ✅ Lista: números rojos + flecha roja en hover */
     #hero-text ul .item-left{
       display:flex;
       gap:12px;
@@ -525,7 +517,6 @@
       transform: translateX(-50%) translateY(0px);
     }
 
-    /* ✅ Suaviza el “split open” */
     .split-text,
     .split-wrapper,
     .menu-panel,
@@ -538,7 +529,6 @@
       will-change: transform, opacity;
     }
 
-    /* ✅ MOBILE: simetría nav + CTA más importante */
     @media (max-width: 767px){
       #top-nav{
         height: 84px !important;
@@ -643,7 +633,6 @@
         filter: drop-shadow(0 40px 80px rgba(0,0,0,0.45)) !important;
       }
 
-      /* ✅ PERF baseline móvil */
       .low-end #hero-logo{ filter: drop-shadow(0 18px 40px rgba(0,0,0,0.35)) !important; }
 
       #hero-text{
@@ -696,25 +685,7 @@
         filter: blur(1px) !important;
       }
 
-      /* ✅ PERF: shine blur aún más light en móvil */
       #shine-line{ filter: blur(1px) !important; height: 14px !important; }
-    }
-
-    /* ✅ MOBILE FLASH ultra estable (NO TOCA PC)
-       En móviles usamos body.flash::after (evita bugs de fixed full-screen + opacity) */
-    @media (max-width: 767px){
-      body.flash::after{
-        content:"";
-        position:fixed;
-        inset:0;
-        background:#fff;
-        opacity:1;
-        z-index:301; /* mismo nivel que #flash */
-        pointer-events:none;
-        transform: translateZ(0);
-        backface-visibility:hidden;
-        will-change: opacity;
-      }
     }
   </style>
 </head>
@@ -936,7 +907,6 @@
     }
     setAppHeight();
 
-    // ✅ PERF: throttle resize (barra de navegador móvil = spam)
     let rh = null;
     window.addEventListener("resize", () => {
       if (rh) cancelAnimationFrame(rh);
@@ -957,89 +927,19 @@
 
       const isMobile = window.matchMedia("(max-width: 767px)").matches;
 
-      // ✅ MOBILE FLASH (clase) — PC NO SE TOCA
-      function mobileFlash(ms = 60){
-        if (!isMobile) return;
-        document.body.classList.add("flash");
-        setTimeout(() => document.body.classList.remove("flash"), ms);
-      }
+      // ✅ Low-end SOLO por señales seguras (sin Battery API / sin FPS test)
+      const lowEndMobile =
+        isMobile &&
+        (
+          (navigator.deviceMemory && navigator.deviceMemory <= 3) ||
+          (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        );
 
-      // ✅ Señales “ahorro / low-end” (sin adivinar demasiado)
-      const mReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const mReducedData   = window.matchMedia && window.matchMedia("(prefers-reduced-data: reduce)").matches;
+      if (lowEndMobile) document.documentElement.classList.add("low-end");
 
-      // Network Information API (si existe)
-      function networkSaysSaveData(){
-        const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-        if (!c) return false;
-        const saveData = !!c.saveData;
-        const type = (c.effectiveType || "").toLowerCase();
-        return saveData || type.includes("2g") || type.includes("slow-2g");
-      }
-
-      // Battery API (si existe; muchos browsers la capan)
-      async function batterySaysLowPower(){
-        try{
-          if (!navigator.getBattery) return false;
-          const b = await navigator.getBattery();
-          return (!b.charging && b.level <= 0.20);
-        }catch(e){
-          return false;
-        }
-      }
-
-      // ✅ Test real de rendimiento (la forma “pro”)
-      function measureFPS(durationMs = 650){
-        return new Promise(resolve => {
-          let frames = 0;
-          let start = performance.now();
-          function loop(t){
-            frames++;
-            if (t - start >= durationMs){
-              const fps = (frames * 1000) / (t - start);
-              resolve(fps);
-              return;
-            }
-            requestAnimationFrame(loop);
-          }
-          requestAnimationFrame(loop);
-        });
-      }
-
-      // ✅ Decide calidad SOLO en móvil (PC intacto)
-      async function decideMobileQuality(){
-        if (!isMobile) return false; // no low-end
-
-        // (1) respeta user preference
-        if (mReducedMotion) return true;
-
-        // (2) señales de ahorro / data saver
-        if (mReducedData || networkSaysSaveData()) return true;
-
-        // (3) heurística de hardware
-        const mem = navigator.deviceMemory || 4;
-        const cores = navigator.hardwareConcurrency || 4;
-        if ((navigator.deviceMemory && mem <= 3) || (navigator.hardwareConcurrency && cores <= 4)) return true;
-
-        // (4) batería baja (si se puede leer)
-        const lowBatt = await batterySaysLowPower();
-        if (lowBatt) return true;
-
-        // (5) medición real: si el device sufre, bajamos
-        // umbral: <42fps suele ser dolor
-        const fps = await measureFPS(650);
-        return fps < 42;
-      }
-
-      // ✅ Estado mutable (porque puede cambiar después del test)
-      let lowEndMobile = false;
-      function applyLowEnd(on){
-        lowEndMobile = !!on;
-        document.documentElement.classList.toggle("low-end", lowEndMobile);
-      }
-
-      // ✅ Inicial por preferencia (rápido)
-      if (isMobile && mReducedMotion) applyLowEnd(true);
+      const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
+      const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
 
       document.getElementById("hero-logo-wrap")?.classList.add("gpu");
       document.getElementById("hero-logo")?.classList.add("gpu");
@@ -1049,7 +949,6 @@
 
       gsap.set(".layer", { opacity: 0 });
 
-      // ✅ guarda y restaura el filtro real del logo
       const heroLogoEl = document.getElementById("hero-logo");
       const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
 
@@ -1063,7 +962,6 @@
           filter: "none"
         });
       } else {
-        // ✅ Desktop intacto
         gsap.set("#hero-logo-wrap", {
           scale: 5,
           x: -180,
@@ -1076,7 +974,6 @@
 
       gsap.set("#hero-text", { y: 80, opacity: 0, force3D: true });
 
-      // ✅ espera decode de imágenes
       function waitImg(img, timeoutMs = 1200){
         if (!img) return Promise.resolve();
 
@@ -1096,25 +993,15 @@
       }
 
       async function startIntro(){
-        // ✅ pre-decode imágenes críticas (solo móvil)
         if (isMobile){
           await Promise.all([
-            waitImg(document.getElementById("hero-logo"), 1200),
+            waitImg(document.getElementById("hero-logo"), lowEndMobile ? 900 : 1200),
             waitImg(document.getElementById("nav-logo"), 700)
           ]);
-
-          // ✅ Decide calidad REAL después de decode (para que el test sea honesto)
-          const shouldLow = await decideMobileQuality();
-          applyLowEnd(shouldLow);
         }
-
-        // ✅ Eases adaptativos (después de decidir lowEndMobile)
-        const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
-        const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
 
         const tl = gsap.timeline();
 
-        // en móvil: quita filtro durante boom
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: "none" }, 0);
         }
@@ -1122,16 +1009,10 @@
         tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.55 : 0.7, ease: E_IN });
         tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.22, ease: "power4.in" }, "+=0.28");
 
-        // ✅ MOBILE: flash estable via body.flash::after (NO toca PC)
-        if (isMobile){
-          tl.add(() => mobileFlash(lowEndMobile ? 45 : 70), ">");
-          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.32 : 0.42, ease: "power2.out" }, "<");
-        } else {
-          // ✅ DESKTOP: intacto
-          tl.to("#flash", { opacity: 1, duration: 0.05 });
-          tl.to("#intro-overlay", { opacity: 0, duration: 0.6, ease: E_OUT }, "-=0.05");
-          tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
-        }
+        // ✅ Flash único (móvil y desktop). Nada de body.flash
+        tl.to("#flash", { opacity: 1, duration: 0.05 });
+        tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
+        tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
 
         tl.set("#intro-overlay", { visibility: "hidden" });
 
@@ -1153,7 +1034,6 @@
             force3D: true
           }, "-=0.62");
         } else {
-          // ✅ Desktop intacto
           tl.to("#hero-logo-wrap", {
             scale: 1,
             x: 0,
@@ -1164,7 +1044,6 @@
             filter: "blur(0px)",
             force3D: true
           }, "-=0.8");
-
           tl.set("#hero-logo-wrap", { filter: "none" }, ">-=0.05");
         }
 
@@ -1175,14 +1054,6 @@
           tl.set(heroLogoEl, { filter: HERO_FILTER }, ">-=0.02");
         }
 
-        if (isMobile){
-          tl.add(() => {
-            gsap.set("#intro-overlay", { display: "none" });
-            gsap.set("#flash", { display: "none" }); // ✅ solo móvil
-          }, ">");
-        }
-
-        // ✅ Idle controlado (low-end = menos + se apaga)
         tl.add(() => {
           let idleTweens = [];
 
@@ -1223,8 +1094,8 @@
           }, { passive: true });
         }, ">");
 
-        setupParallax(); // PC only
-        setupMenu();     // usa lowEndMobile ya decidido
+        setupParallax();
+        setupMenu();
       }
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -1274,15 +1145,11 @@
         const questions = document.getElementById("btn-questions");
 
         if (pickup) pickup.onclick = () => {
-          openWhatsApp(
-            "Hola ONI 👹🔥 quiero *PIDE Y RECOGE*.\n\nMi pedido es:\n- \n\nNombre:\nHora aproximada de retiro:\nNotas:"
-          );
+          openWhatsApp("Hola ONI 👹🔥 quiero *PIDE Y RECOGE*.\n\nMi pedido es:\n- \n\nNombre:\nHora aproximada de retiro:\nNotas:");
         };
 
         if (delivery) delivery.onclick = () => {
-          openWhatsApp(
-            "Hola ONI 👹🔥 quiero *DELIVERY*.\n\nMi pedido es:\n- \n\nDirección:\nReferencia:\nForma de pago:\nNotas:"
-          );
+          openWhatsApp("Hola ONI 👹🔥 quiero *DELIVERY*.\n\nMi pedido es:\n- \n\nDirección:\nReferencia:\nForma de pago:\nNotas:");
         };
 
         if (questions) questions.onclick = () => {
@@ -1292,9 +1159,7 @@
         document.querySelectorAll(".menu-item-btn").forEach(btn => {
           btn.onclick = () => {
             const item = btn.getAttribute("data-item") || "";
-            openWhatsApp(
-              `Hola ONI 👹🔥 quiero pedir:\n- ${item}\n\nModo: (Pide y recoge / Delivery)\nNombre:\nDirección (si es delivery):\nNotas:`
-            );
+            openWhatsApp(`Hola ONI 👹🔥 quiero pedir:\n- ${item}\n\nModo: (Pide y recoge / Delivery)\nNombre:\nDirección (si es delivery):\nNotas:`);
           };
         });
       }
@@ -1306,7 +1171,6 @@
 
         const menuIntro = document.getElementById("menu-intro");
         const splitWrapper = document.getElementById("split-wrapper");
-        const slashLine = document.getElementById("slash-line");
         const shineLine = document.getElementById("shine-line");
         const panelTop = document.querySelector(".menu-panel-top");
         const panelBottom = document.querySelector(".menu-panel-bottom");
@@ -1314,7 +1178,6 @@
         const screenSlash = document.getElementById("screen-slash");
         const screenSlashGlow = document.getElementById("screen-slash-glow");
 
-        // ✅ PERF: low-end móvil: apaga glow/shine
         const liteSlash = isMobile && lowEndMobile;
         if (liteSlash){
           gsap.set("#screen-slash-glow", { opacity: 0, display: "none" });
@@ -1363,8 +1226,6 @@
           gsap.set(menuIntro, { opacity: 0, visibility: "hidden" });
           gsap.set(splitWrapper, { opacity: 0, x: 0 });
           gsap.set(".split-top, .split-bottom", { x: 0, xPercent: 0, force3D: true });
-
-          gsap.set(slashLine, { scaleX: 0, opacity: 0 });
 
           gsap.set(shineLine, { opacity: 0, x: "-120%" });
           gsap.set(panelTop, { y: "-100%" });
@@ -1431,7 +1292,6 @@
         });
       }
 
-      // ✅ PERF: Parallax optimizado (móvil OFF, desktop quickTo + rAF) — PC intacto
       function setupParallax(){
         if (isMobile) return;
 
@@ -1477,4 +1337,3 @@
   </script>
 </body>
 </html>
-
