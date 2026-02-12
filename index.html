@@ -1,4 +1,4 @@
-<!DOCTYPE html>  
+<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -49,6 +49,10 @@
       overflow:hidden;
       z-index:1;
     }
+
+    /* ✅ contiene pintura/layout para evitar repaints grandes en móvil */
+    .canvas-container, #hero-logo-wrap, #hero-text{ contain: layout paint; }
+
     .layer{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; will-change:transform,opacity; }
 
     /* ✅ GPU boost */
@@ -65,6 +69,8 @@
       will-change: transform, opacity, filter;
       transform: translateZ(0);
       backface-visibility: hidden;
+      /* evita que el halo + logo fuercen repaints fuera del contenedor */
+      isolation: isolate;
     }
 
     /* ✅ halo rojo sutil detrás del logo grande */
@@ -674,6 +680,9 @@
         height: 14px !important;
         filter: blur(1px) !important;
       }
+
+      /* ✅ PERF: shine blur aún más light en móvil */
+      #shine-line{ filter: blur(1px) !important; height: 14px !important; }
     }
   </style>
 </head>
@@ -813,18 +822,18 @@
 
   <nav id="top-nav" class="fixed top-0 left-0 w-full h-32 px-10 flex justify-between items-center z-50 opacity-0 -translate-y-10">
     <div class="flex gap-12 items-center">
-      <img id="nav-logo" src="logo-oni-nav.png" alt="ONI Logo Nav" class="w-28 h-28 object-contain">
+      <img id="nav-logo" src="logo-oni-nav.png" alt="ONI Logo Nav" class="w-28 h-28 object-contain" decoding="async" fetchpriority="high">
       <span class="druk-text text-4xl tracking-normal text-white">ONI BURGERS</span>
 
       <div class="hidden md:flex gap-6 items-center">
         <a href="#" aria-label="Instagram" class="social-icon">
-          <img class="social-img" src="instagram.png" alt="Instagram" />
+          <img class="social-img" src="instagram.png" alt="Instagram" decoding="async" />
         </a>
         <a href="#" aria-label="TikTok" class="social-icon">
-          <img class="social-img" src="tiktok.png" alt="TikTok" />
+          <img class="social-img" src="tiktok.png" alt="TikTok" decoding="async" />
         </a>
         <a href="#" aria-label="WhatsApp" class="social-icon">
-          <img class="social-img" src="whatsapp.png" alt="WhatsApp" />
+          <img class="social-img" src="whatsapp.png" alt="WhatsApp" decoding="async" />
         </a>
       </div>
     </div>
@@ -853,6 +862,7 @@
           <div id="hero-logo-wrap" class="h-[84vh] w-auto max-w-none">
             <img id="hero-logo" src="logo-oni-hero.png" alt="ONI Logo Hero"
                  class="h-full w-auto max-w-none"
+                 decoding="async" fetchpriority="high"
                  style="filter: drop-shadow(0 50px 100px rgba(0,0,0,0.45));">
           </div>
         </div>
@@ -911,6 +921,7 @@
     } else {
       gsap.ticker.lagSmoothing(0);
       gsap.defaults({ overwrite: "auto" });
+      gsap.config({ force3D: true, nullTargetWarn: false });
 
       const isMobile = window.matchMedia("(max-width: 767px)").matches;
 
@@ -937,6 +948,10 @@
 
       gsap.set(".layer", { opacity: 0 });
 
+      // ✅ guarda y restaura el filtro real del logo (evita que el drop-shadow se calcule DURANTE el boom en móvil)
+      const heroLogoEl = document.getElementById("hero-logo");
+      const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
+
       if (isMobile){
         gsap.set("#hero-logo-wrap", {
           scale: 1.6,
@@ -959,8 +974,41 @@
 
       gsap.set("#hero-text", { y: 80, opacity: 0, force3D: true });
 
-      function startIntro(){
+      // ✅ PERF clave: espera a que las imágenes decodifiquen ANTES del boom (evita el “frame-drop” feo)
+      function waitImg(img, timeoutMs = 1200){
+        if (!img) return Promise.resolve();
+        const done = () => Promise.resolve();
+
+        const pLoad = img.complete
+          ? Promise.resolve()
+          : new Promise(res => {
+              img.addEventListener("load", () => res(), { once: true, passive: true });
+              img.addEventListener("error", () => res(), { once: true, passive: true });
+            });
+
+        const pDecode = ("decode" in img)
+          ? img.decode().catch(() => {})
+          : Promise.resolve();
+
+        const pTimeout = new Promise(res => setTimeout(res, timeoutMs));
+        return Promise.race([Promise.all([pLoad, pDecode]), pTimeout]);
+      }
+
+      async function startIntro(){
+        // pre-decode imágenes críticas (solo móvil, porque en PC ya te corre fino)
+        if (isMobile){
+          await Promise.all([
+            waitImg(document.getElementById("hero-logo"), lowEndMobile ? 900 : 1200),
+            waitImg(document.getElementById("nav-logo"), 700)
+          ]);
+        }
+
         const tl = gsap.timeline();
+
+        // en móvil, durante el boom: quita el filtro del logo y lo devuelves al final (visual igual, menos drop de FPS)
+        if (isMobile && heroLogoEl){
+          tl.set(heroLogoEl, { filter: "none" }, 0);
+        }
 
         tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.55 : 0.7, ease: E_IN });
         tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.22, ease: "power4.in" }, "+=0.28");
@@ -969,10 +1017,11 @@
         tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
         tl.set("#intro-overlay", { visibility: "hidden" });
 
+        // ✅ PERF: en móvil baja el stagger (muchos layers + opacity = repaints)
         tl.to(".layer", {
           opacity: 1,
-          duration: lowEndMobile ? 0.35 : 0.7,
-          stagger: lowEndMobile ? 0.01 : 0.04,
+          duration: lowEndMobile ? 0.28 : (isMobile ? 0.45 : 0.7),
+          stagger: lowEndMobile ? 0 : (isMobile ? 0.01 : 0.04),
           ease: "power2.out"
         }, "-=0.75");
 
@@ -982,10 +1031,10 @@
             x: 0,
             rotationZ: 0,
             opacity: 1,
-            duration: lowEndMobile ? 0.42 : 0.55,
+            duration: lowEndMobile ? 0.40 : 0.52,
             ease: "power3.out",
             force3D: true
-          }, "-=0.65");
+          }, "-=0.62");
         } else {
           tl.to("#hero-logo-wrap", {
             scale: 1,
@@ -1001,8 +1050,13 @@
           tl.set("#hero-logo-wrap", { filter: "none" }, ">-=0.05");
         }
 
-        tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.65 : 0.9, ease: "power4.out" }, "-=0.65");
-        tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.5 : 0.7, ease: "power3.out" }, "-=0.75");
+        tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.62 : 0.9, ease: "power4.out" }, "-=0.62");
+        tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.48 : 0.7, ease: "power3.out" }, "-=0.72");
+
+        // devuelve el filtro real una vez que ya todo está quieto
+        if (isMobile && heroLogoEl){
+          tl.set(heroLogoEl, { filter: HERO_FILTER }, ">-=0.02");
+        }
 
         if (isMobile){
           tl.add(() => {
@@ -1060,7 +1114,8 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-        setTimeout(startIntro, 120);
+        // en móvil: un pelín más de delay para que el primer frame ya tenga assets listos
+        setTimeout(startIntro, isMobile ? 160 : 120);
       });
 
       const WHATSAPP_NUMBER = "";
@@ -1198,19 +1253,26 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
+          // ✅ PERF: en móvil, reduce la vibración (el repeat con x suele ser “jank generator”)
+          const shakeRepeats = isMobile ? (lowEndMobile ? 2 : 3) : 5;
+          const shakeDur = isMobile ? (lowEndMobile ? 0.05 : 0.045) : 0.045;
+
+          const panelDur = isMobile ? (lowEndMobile ? 0.26 : 0.30) : 0.32;
+          const splitOutDur = isMobile ? (lowEndMobile ? 0.34 : 0.38) : 0.40;
+
           const menuTL = gsap.timeline({ onComplete: () => { isAnimating = false; } });
 
           menuTL
             .set(menuIntro, { visibility: "visible" })
             .to(menuIntro, { opacity: 1, duration: 0.10, ease: "power1.out" })
-            .to(panelTop, { y: "0%", duration: 0.32, ease: "expo.out", force3D: true })
-            .to(panelBottom, { y: "0%", duration: 0.32, ease: "expo.out", force3D: true }, "<")
+            .to(panelTop, { y: "0%", duration: panelDur, ease: "expo.out", force3D: true })
+            .to(panelBottom, { y: "0%", duration: panelDur, ease: "expo.out", force3D: true }, "<")
             .to(splitWrapper, { opacity: 1, duration: 0.14, ease: "power2.out" })
-            .to({}, { duration: 0.18 })
+            .to({}, { duration: isMobile ? 0.14 : 0.18 })
             .set(shineLine, { opacity: 1, x: "-120%" })
-            .to(shineLine, { x: "220%", duration: 0.22, ease: "power2.out", force3D: true })
+            .to(shineLine, { x: "220%", duration: isMobile ? 0.20 : 0.22, ease: "power2.out", force3D: true })
             .to(shineLine, { opacity: 0, duration: 0.10, ease: "power1.out" }, "-=0.06")
-            .to(splitWrapper, { x: 2, repeat: 5, yoyo: true, duration: 0.045, ease: "none", force3D: true })
+            .to(splitWrapper, { x: 2, repeat: shakeRepeats, yoyo: true, duration: shakeDur, ease: "none", force3D: true })
             .to(splitWrapper, { x: 0, duration: 0.02 })
 
             .to(screenSlash, { opacity: 1, duration: 0.01 }, "<")
@@ -1221,13 +1283,13 @@
             .to(screenSlashGlow, { opacity: 0, duration: 0.12, ease: "power2.out" }, "<")
             .to(screenSlash, { opacity: 0, duration: 0.14, ease: "power2.out" }, "<")
 
-            .to({}, { duration: 0.22 })
+            .to({}, { duration: isMobile ? 0.18 : 0.22 })
 
-            .to(".split-top", { xPercent: 130, force3D: true, duration: 0.40, ease: "expo.in" }, "-=0.10")
-            .to(".split-bottom", { xPercent: -130, force3D: true, duration: 0.40, ease: "expo.in" }, "<")
+            .to(".split-top", { xPercent: 130, force3D: true, duration: splitOutDur, ease: "expo.in" }, "-=0.10")
+            .to(".split-bottom", { xPercent: -130, force3D: true, duration: splitOutDur, ease: "expo.in" }, "<")
 
-            .to(panelTop, { y: "-100%", duration: 0.60, ease: "expo.inOut", force3D: true }, "-=0.08")
-            .to(panelBottom, { y: "100%", duration: 0.60, ease: "expo.inOut", force3D: true }, "<")
+            .to(panelTop, { y: "-100%", duration: isMobile ? 0.52 : 0.60, ease: "expo.inOut", force3D: true }, "-=0.08")
+            .to(panelBottom, { y: "100%", duration: isMobile ? 0.52 : 0.60, ease: "expo.inOut", force3D: true }, "<")
             .add(() => menuOverlay.classList.add("preactive"), "-=0.35")
             .to(menuIntro, { opacity: 0, duration: 0.12, ease: "power1.inOut" }, "-=0.25")
             .add(() => {
