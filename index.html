@@ -957,17 +957,6 @@
 
       const isMobile = window.matchMedia("(max-width: 767px)").matches;
 
-      // ✅ PERF: detecta low-end (RAM/cores/prefers-reduced-motion)
-      const lowEndMobile =
-        isMobile &&
-        (
-          (navigator.deviceMemory && navigator.deviceMemory <= 3) ||
-          (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        );
-
-      if (lowEndMobile) document.documentElement.classList.add("low-end");
-
       // ✅ MOBILE FLASH (clase) — PC NO SE TOCA
       function mobileFlash(ms = 60){
         if (!isMobile) return;
@@ -975,9 +964,82 @@
         setTimeout(() => document.body.classList.remove("flash"), ms);
       }
 
-      // ✅ Eases adaptativos
-      const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
-      const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
+      // ✅ Señales “ahorro / low-end” (sin adivinar demasiado)
+      const mReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const mReducedData   = window.matchMedia && window.matchMedia("(prefers-reduced-data: reduce)").matches;
+
+      // Network Information API (si existe)
+      function networkSaysSaveData(){
+        const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (!c) return false;
+        const saveData = !!c.saveData;
+        const type = (c.effectiveType || "").toLowerCase();
+        return saveData || type.includes("2g") || type.includes("slow-2g");
+      }
+
+      // Battery API (si existe; muchos browsers la capan)
+      async function batterySaysLowPower(){
+        try{
+          if (!navigator.getBattery) return false;
+          const b = await navigator.getBattery();
+          return (!b.charging && b.level <= 0.20);
+        }catch(e){
+          return false;
+        }
+      }
+
+      // ✅ Test real de rendimiento (la forma “pro”)
+      function measureFPS(durationMs = 650){
+        return new Promise(resolve => {
+          let frames = 0;
+          let start = performance.now();
+          function loop(t){
+            frames++;
+            if (t - start >= durationMs){
+              const fps = (frames * 1000) / (t - start);
+              resolve(fps);
+              return;
+            }
+            requestAnimationFrame(loop);
+          }
+          requestAnimationFrame(loop);
+        });
+      }
+
+      // ✅ Decide calidad SOLO en móvil (PC intacto)
+      async function decideMobileQuality(){
+        if (!isMobile) return false; // no low-end
+
+        // (1) respeta user preference
+        if (mReducedMotion) return true;
+
+        // (2) señales de ahorro / data saver
+        if (mReducedData || networkSaysSaveData()) return true;
+
+        // (3) heurística de hardware
+        const mem = navigator.deviceMemory || 4;
+        const cores = navigator.hardwareConcurrency || 4;
+        if ((navigator.deviceMemory && mem <= 3) || (navigator.hardwareConcurrency && cores <= 4)) return true;
+
+        // (4) batería baja (si se puede leer)
+        const lowBatt = await batterySaysLowPower();
+        if (lowBatt) return true;
+
+        // (5) medición real: si el device sufre, bajamos
+        // umbral: <42fps suele ser dolor
+        const fps = await measureFPS(650);
+        return fps < 42;
+      }
+
+      // ✅ Estado mutable (porque puede cambiar después del test)
+      let lowEndMobile = false;
+      function applyLowEnd(on){
+        lowEndMobile = !!on;
+        document.documentElement.classList.toggle("low-end", lowEndMobile);
+      }
+
+      // ✅ Inicial por preferencia (rápido)
+      if (isMobile && mReducedMotion) applyLowEnd(true);
 
       document.getElementById("hero-logo-wrap")?.classList.add("gpu");
       document.getElementById("hero-logo")?.classList.add("gpu");
@@ -987,7 +1049,7 @@
 
       gsap.set(".layer", { opacity: 0 });
 
-      // ✅ guarda y restaura el filtro real del logo (evita que el drop-shadow se calcule DURANTE el boom en móvil)
+      // ✅ guarda y restaura el filtro real del logo
       const heroLogoEl = document.getElementById("hero-logo");
       const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
 
@@ -1001,6 +1063,7 @@
           filter: "none"
         });
       } else {
+        // ✅ Desktop intacto
         gsap.set("#hero-logo-wrap", {
           scale: 5,
           x: -180,
@@ -1013,7 +1076,7 @@
 
       gsap.set("#hero-text", { y: 80, opacity: 0, force3D: true });
 
-      // ✅ PERF clave: espera a que las imágenes decodifiquen ANTES del boom (evita el “frame-drop” feo)
+      // ✅ espera decode de imágenes
       function waitImg(img, timeoutMs = 1200){
         if (!img) return Promise.resolve();
 
@@ -1033,17 +1096,25 @@
       }
 
       async function startIntro(){
-        // pre-decode imágenes críticas (solo móvil)
+        // ✅ pre-decode imágenes críticas (solo móvil)
         if (isMobile){
           await Promise.all([
-            waitImg(document.getElementById("hero-logo"), lowEndMobile ? 900 : 1200),
+            waitImg(document.getElementById("hero-logo"), 1200),
             waitImg(document.getElementById("nav-logo"), 700)
           ]);
+
+          // ✅ Decide calidad REAL después de decode (para que el test sea honesto)
+          const shouldLow = await decideMobileQuality();
+          applyLowEnd(shouldLow);
         }
+
+        // ✅ Eases adaptativos (después de decidir lowEndMobile)
+        const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
+        const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
 
         const tl = gsap.timeline();
 
-        // en móvil, durante el boom: quita el filtro del logo y lo devuelves al final
+        // en móvil: quita filtro durante boom
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: "none" }, 0);
         }
@@ -1056,15 +1127,14 @@
           tl.add(() => mobileFlash(lowEndMobile ? 45 : 70), ">");
           tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.32 : 0.42, ease: "power2.out" }, "<");
         } else {
-          // ✅ DESKTOP: igual que siempre (no tocamos PC)
+          // ✅ DESKTOP: intacto
           tl.to("#flash", { opacity: 1, duration: 0.05 });
-          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
+          tl.to("#intro-overlay", { opacity: 0, duration: 0.6, ease: E_OUT }, "-=0.05");
           tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
         }
 
         tl.set("#intro-overlay", { visibility: "hidden" });
 
-        // ✅ PERF: en móvil NO revelamos layers durante el flash
         tl.to(".layer", {
           opacity: 1,
           duration: lowEndMobile ? 0.28 : (isMobile ? 0.45 : 0.7),
@@ -1083,6 +1153,7 @@
             force3D: true
           }, "-=0.62");
         } else {
+          // ✅ Desktop intacto
           tl.to("#hero-logo-wrap", {
             scale: 1,
             x: 0,
@@ -1100,7 +1171,6 @@
         tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.62 : 0.9, ease: "power4.out" }, "-=0.62");
         tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.48 : 0.7, ease: "power3.out" }, "-=0.72");
 
-        // devuelve el filtro real una vez que ya todo está estable
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: HERO_FILTER }, ">-=0.02");
         }
@@ -1145,8 +1215,6 @@
           }
 
           startIdle();
-
-          // ✅ Low-end: apaga idle luego de 5s
           if (lowEndMobile) setTimeout(stopIdle, 5000);
 
           document.addEventListener("visibilitychange", () => {
@@ -1155,8 +1223,8 @@
           }, { passive: true });
         }, ">");
 
-        setupParallax();
-        setupMenu();
+        setupParallax(); // PC only
+        setupMenu();     // usa lowEndMobile ya decidido
       }
 
       document.addEventListener("DOMContentLoaded", () => {
@@ -1305,7 +1373,6 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
-          // ✅ PERF: móvil: reduce vibración; low-end casi nada
           const shakeRepeats = isMobile ? (lowEndMobile ? 0 : 2) : 5;
           const shakeDur = isMobile ? (lowEndMobile ? 0.055 : 0.05) : 0.045;
 
@@ -1364,7 +1431,7 @@
         });
       }
 
-      // ✅ PERF: Parallax optimizado (móvil OFF, desktop quickTo + rAF)
+      // ✅ PERF: Parallax optimizado (móvil OFF, desktop quickTo + rAF) — PC intacto
       function setupParallax(){
         if (isMobile) return;
 
@@ -1410,3 +1477,4 @@
   </script>
 </body>
 </html>
+
