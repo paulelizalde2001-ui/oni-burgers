@@ -304,7 +304,7 @@
       visibility:visible;
     }
 
-    /* ✅ PERF: flash optimizado */
+    /* ✅ PERF: flash optimizado (DESKTOP USA ESTO) */
     #flash{
       position:fixed;
       inset:0;
@@ -699,6 +699,23 @@
       /* ✅ PERF: shine blur aún más light en móvil */
       #shine-line{ filter: blur(1px) !important; height: 14px !important; }
     }
+
+    /* ✅ MOBILE FLASH ultra estable (NO TOCA PC)
+       En móviles usamos body.flash::after (evita bugs de fixed full-screen + opacity) */
+    @media (max-width: 767px){
+      body.flash::after{
+        content:"";
+        position:fixed;
+        inset:0;
+        background:#fff;
+        opacity:1;
+        z-index:301; /* mismo nivel que #flash */
+        pointer-events:none;
+        transform: translateZ(0);
+        backface-visibility:hidden;
+        will-change: opacity;
+      }
+    }
   </style>
 </head>
 
@@ -951,6 +968,13 @@
 
       if (lowEndMobile) document.documentElement.classList.add("low-end");
 
+      // ✅ MOBILE FLASH (clase) — PC NO SE TOCA
+      function mobileFlash(ms = 60){
+        if (!isMobile) return;
+        document.body.classList.add("flash");
+        setTimeout(() => document.body.classList.remove("flash"), ms);
+      }
+
       // ✅ Eases adaptativos
       const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
       const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
@@ -1027,11 +1051,10 @@
         tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.55 : 0.7, ease: E_IN });
         tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.22, ease: "power4.in" }, "+=0.28");
 
-        // ✅ PERF: en móviles el flash es el pico. Lo hacemos “snap” y evitamos solapar mil cosas.
+        // ✅ MOBILE: flash estable via body.flash::after (NO toca PC)
         if (isMobile){
-          tl.set("#flash", { opacity: 1 }, ">");
+          tl.add(() => mobileFlash(lowEndMobile ? 45 : 70), ">");
           tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.32 : 0.42, ease: "power2.out" }, "<");
-          tl.set("#flash", { opacity: 0 }, ">+=0.06");
         } else {
           // ✅ DESKTOP: igual que siempre (no tocamos PC)
           tl.to("#flash", { opacity: 1, duration: 0.05 });
@@ -1085,7 +1108,7 @@
         if (isMobile){
           tl.add(() => {
             gsap.set("#intro-overlay", { display: "none" });
-            gsap.set("#flash", { display: "none" });
+            gsap.set("#flash", { display: "none" }); // ✅ solo móvil
           }, ">");
         }
 
@@ -1387,4 +1410,3 @@
   </script>
 </body>
 </html>
-
