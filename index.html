@@ -50,8 +50,9 @@
       z-index:1;
     }
 
-    /* ✅ contiene pintura/layout para evitar repaints grandes en móvil */
-    .canvas-container, #hero-logo-wrap, #hero-text{ contain: layout paint; }
+    /* ✅ FIX: evita “halo cuadrado” (contain:paint clipea pseudo-elementos) */
+    .canvas-container{ contain: layout paint; }
+    #hero-logo-wrap, #hero-text{ contain: layout; }
 
     .layer{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; will-change:transform,opacity; }
 
@@ -69,26 +70,27 @@
       will-change: transform, opacity, filter;
       transform: translateZ(0);
       backface-visibility: hidden;
-      /* evita que el halo + logo fuercen repaints fuera del contenedor */
       isolation: isolate;
     }
 
-    /* ✅ halo rojo sutil detrás del logo grande */
+    /* ✅ halo rojo sutil detrás del logo grande (YA NO SE VE CUADRADO) */
     #hero-logo-wrap::before{
       content:"";
       position:absolute;
-      inset:-14%;
-      background: radial-gradient(circle at 50% 40%, var(--oni-red-soft), transparent 62%);
-      opacity: .8;
-      filter: blur(10px);
+      inset:-18%;
+      border-radius:999px; /* ✅ clave */
+      background: radial-gradient(circle at 50% 40%, var(--oni-red-soft), transparent 70%);
+      opacity: .55;        /* ✅ menos “mancha” */
+      filter: blur(14px);
       z-index:-1;
       pointer-events:none;
+      transform: translateZ(0);
     }
 
     /* ✅ PERF: low-end reduce filtros */
     .low-end #hero-logo-wrap::before{
-      filter: blur(4px) !important;
-      opacity: .45 !important;
+      filter: blur(6px) !important;
+      opacity: .35 !important;
     }
     .low-end #hero-logo{
       filter: drop-shadow(0 14px 30px rgba(0,0,0,0.32)) !important;
@@ -1031,6 +1033,7 @@
           tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.32 : 0.42, ease: "power2.out" }, "<");
           tl.set("#flash", { opacity: 0 }, ">+=0.06");
         } else {
+          // ✅ DESKTOP: igual que siempre (no tocamos PC)
           tl.to("#flash", { opacity: 1, duration: 0.05 });
           tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
           tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
@@ -1038,7 +1041,7 @@
 
         tl.set("#intro-overlay", { visibility: "hidden" });
 
-        // ✅ PERF: en móvil NO revelamos layers durante el flash (ahí es donde se muere el FPS)
+        // ✅ PERF: en móvil NO revelamos layers durante el flash
         tl.to(".layer", {
           opacity: 1,
           duration: lowEndMobile ? 0.28 : (isMobile ? 0.45 : 0.7),
@@ -1220,7 +1223,7 @@
         const screenSlash = document.getElementById("screen-slash");
         const screenSlashGlow = document.getElementById("screen-slash-glow");
 
-        // ✅ PERF: low-end móvil: apaga glow/shine (misma idea, menos costo)
+        // ✅ PERF: low-end móvil: apaga glow/shine
         const liteSlash = isMobile && lowEndMobile;
         if (liteSlash){
           gsap.set("#screen-slash-glow", { opacity: 0, display: "none" });
@@ -1279,7 +1282,7 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
-          // ✅ PERF: en móvil reduce vibración; low-end casi nada
+          // ✅ PERF: móvil: reduce vibración; low-end casi nada
           const shakeRepeats = isMobile ? (lowEndMobile ? 0 : 2) : 5;
           const shakeDur = isMobile ? (lowEndMobile ? 0.055 : 0.05) : 0.045;
 
