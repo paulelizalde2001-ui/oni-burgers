@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -102,9 +102,7 @@
       filter: none !important;
     }
 
-    /* ✅ FLASH (mobile-safe): en low-end NO animamos opacity de un div full-screen.
-       Usamos un overlay por pseudo-elemento del body que es mucho menos propenso a glitch.
-    */
+    /* ✅ FLASH (mobile-safe) */
     body.flash::after{
       content:"";
       position:fixed;
@@ -316,7 +314,7 @@
     }
     .menu-big-btn:active{ transform: translateY(0px) scale(0.98); }
 
-    /* ✅ FIX: Intro visible al inicio (evita pantalla vacía/gris) */
+    /* ✅ FIX: Intro visible al inicio */
     #intro-overlay{
       position:fixed; inset:0; background:#000; z-index:300;
       display:flex; align-items:center; justify-content:center;
@@ -325,7 +323,7 @@
       visibility:visible;
     }
 
-    /* ✅ Dejamos #flash para DESKTOP (no tocamos PC). */
+    /* ✅ Dejamos #flash para DESKTOP */
     #flash{
       position:fixed;
       inset:0;
@@ -373,7 +371,7 @@
     #hero-text{ position:relative; z-index:5; }
     #hero-logo{ position:relative; z-index:2; }
 
-    /* ✅ FEED THE DEMON en rojo (como referencia) */
+    /* ✅ FEED THE DEMON en rojo */
     #hero-text p{ color: var(--oni-red) !important; }
 
     /* ✅ Lista: números rojos + flecha roja en hover */
@@ -667,7 +665,7 @@
         margin: 0 !important;
       }
 
-      /* ✅ PERF móvil: baja el costo del shadow del PNG (sigue viéndose brutal con el halo) */
+      /* ✅ PERF móvil: baja el costo del shadow del PNG */
       #hero-logo{
         height: 100% !important;
         width: auto !important;
@@ -675,7 +673,6 @@
         filter: drop-shadow(0 22px 44px rgba(0,0,0,0.35)) !important;
       }
 
-      /* ✅ PERF baseline móvil */
       .low-end #hero-logo{ filter: none !important; }
 
       #hero-text{
@@ -728,10 +725,9 @@
         filter: blur(1px) !important;
       }
 
-      /* ✅ PERF: shine blur aún más light en móvil */
       #shine-line{ filter: blur(1px) !important; height: 14px !important; }
 
-      /* ✅ En móvil: #flash no se usa (solo desktop). Evita glitches por composición en gama baja */
+      /* ✅ En móvil: #flash no se usa */
       #flash{ display:none !important; }
     }
   </style>
@@ -976,7 +972,6 @@
         vvRAF = requestAnimationFrame(scheduleAppHeight);
       }, { passive: true });
     } else {
-      // ✅ PERF: throttle resize (barra de navegador móvil = spam)
       let rh = null;
       window.addEventListener("resize", () => {
         if (rh) cancelAnimationFrame(rh);
@@ -992,7 +987,7 @@
       const overlay = document.getElementById("intro-overlay");
       if (overlay) { overlay.style.opacity = "0"; overlay.style.visibility = "hidden"; }
     } else {
-      // ✅ NO tocamos desktop: esto corre igual.
+      // ✅ PC queda igual: esto ya estaba así
       gsap.ticker.lagSmoothing(0);
       gsap.defaults({ overwrite: "auto" });
       gsap.config({ force3D: true, nullTargetWarn: false });
@@ -1000,38 +995,115 @@
       const isMobile = IS_MOBILE;
       const isTouch = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
-      // ✅ PERF: detecta low-end (RAM/cores/prefers-reduced-motion)
-      const lowEndMobile =
-        isMobile &&
-        (
-          (navigator.deviceMemory && navigator.deviceMemory <= 3) ||
-          (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        );
+      // ============================================================
+      // ✅ FIX REAL: detección low-end robusta (signals + FPS probe)
+      //  - Forzar: agrega ?lite=1 al URL (para test)
+      //  - Persistente opcional: localStorage oni_lite=1
+      // ============================================================
+      let lowEndMobile = false;
 
-      if (lowEndMobile) document.documentElement.classList.add("low-end");
+      const qs = new URLSearchParams(location.search);
+      const forcedLite = (qs.get("lite") === "1");
+      const storedLite = (() => {
+        try { return localStorage.getItem("oni_lite") === "1"; }
+        catch(e){ return false; }
+      })();
 
-      // ✅ Mobile-only: vuelve a habilitar lagSmoothing para evitar “saltos” cuando se caen frames
+      function getConn(){
+        return navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+      }
+
+      function baseLowEndSignals(){
+        const rm = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+        const mem = navigator.deviceMemory || 0;
+        const cores = navigator.hardwareConcurrency || 0;
+
+        const conn = getConn();
+        const saveData = !!(conn && conn.saveData);
+        const et = (conn && conn.effectiveType) ? conn.effectiveType : "";
+        const slowNet = (et === "slow-2g" || et === "2g");
+
+        // señales "rápidas" (no siempre existen, pero ayudan)
+        return rm || saveData || slowNet || (mem && mem <= 4) || (cores && cores <= 4);
+      }
+
+      function probeFPS(ms = 220){
+        return new Promise(resolve => {
+          let start = null, last = null, sum = 0, frames = 0;
+
+          function tick(t){
+            if (start === null){
+              start = t; last = t;
+              requestAnimationFrame(tick);
+              return;
+            }
+            const dt = t - last;
+            last = t;
+
+            sum += dt;
+            frames++;
+
+            if (t - start >= ms){
+              const avg = sum / Math.max(1, frames);
+              const fps = 1000 / Math.max(1, avg);
+              resolve(fps);
+            } else {
+              requestAnimationFrame(tick);
+            }
+          }
+          requestAnimationFrame(tick);
+        });
+      }
+
+      function applyLowEnd(){
+        document.documentElement.classList.add("low-end");
+        // ✅ móvil: si es low-end, fuerza menos composición
+        if (isMobile) gsap.config({ force3D: false });
+      }
+
+      // set inicial (rápido)
+      lowEndMobile = isMobile && (forcedLite || storedLite || baseLowEndSignals());
+      if (lowEndMobile) applyLowEnd();
+
+      // refina con FPS real (esto es lo que faltaba)
+      async function refineLowEndByFPS(){
+        if (!isMobile) return;
+        if (forcedLite || lowEndMobile) return; // ya está low-end
+
+        const fps = await probeFPS(240);
+        if (fps < 48){
+          lowEndMobile = true;
+          applyLowEnd();
+          try { localStorage.setItem("oni_lite", "1"); } catch(e){}
+        }
+
+        // debug en consola (por si quieres verificar)
+        console.log("[ONI] fps:", fps.toFixed(1), "lowEndMobile:", lowEndMobile);
+      }
+
+      // ✅ Mobile-only: evita “saltos” cuando se caen frames (PC intacto)
       if (isMobile){
         gsap.ticker.lagSmoothing(1000, 33);
         if (lowEndMobile) gsap.config({ force3D: false });
+        refineLowEndByFPS(); // corre antes de que el usuario toque el menú
       }
 
-      // ✅ Eases adaptativos
-      const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
-      const E_OUT = lowEndMobile ? "power2.out" : "expo.inOut";
+      // ✅ Eases adaptativos (función para que refleje cambios si lowEnd se activa luego)
+      const E_IN  = () => (lowEndMobile ? "power3.out" : "expo.out");
+      const E_OUT = () => (lowEndMobile ? "power2.out" : "expo.inOut");
+
+      // ============================================================
 
       document.getElementById("hero-logo-wrap")?.classList.add("gpu");
       document.getElementById("hero-logo")?.classList.add("gpu");
       document.getElementById("hero-text")?.classList.add("gpu");
       document.getElementById("intro-title")?.classList.add("gpu");
 
-      // ✅ En móvil ya NO usamos #flash (evita glitches). En desktop se queda igual.
       if (!isMobile) document.getElementById("flash")?.classList.add("gpu");
 
       gsap.set(".layer", { opacity: 0 });
 
-      // ✅ guarda y restaura el filtro real del logo
       const heroLogoEl = document.getElementById("hero-logo");
       const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
 
@@ -1060,7 +1132,6 @@
 
       gsap.set("#hero-text", { y: lowEndMobile ? 56 : 80, opacity: 0, force3D: !lowEndMobile });
 
-      // ✅ PERF clave: espera a que las imágenes decodifiquen ANTES del boom
       function waitImg(img, timeoutMs = 1200){
         if (!img) return Promise.resolve();
 
@@ -1079,7 +1150,6 @@
         return Promise.race([Promise.all([pLoad, pDecode]), pTimeout]);
       }
 
-      // ✅ Flash ultra estable (especialmente en gama baja)
       function doFlash(){
         const ms = lowEndMobile ? 40 : 70;
         document.body.classList.add("flash");
@@ -1089,7 +1159,6 @@
       }
 
       async function startIntro(){
-        // pre-decode imágenes críticas (solo móvil)
         if (isMobile){
           await Promise.all([
             waitImg(document.getElementById("hero-logo"), lowEndMobile ? 850 : 1200),
@@ -1100,32 +1169,28 @@
         const tl = gsap.timeline({
           onComplete: () => {
             introRunning = false;
-            // setAppHeight final por si el chrome cambió durante el intro
             scheduleAppHeight();
           }
         });
 
-        // en móvil, durante el boom: quita el filtro del logo y lo devuelves al final
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: "none" }, 0);
         }
 
-        tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.50 : 0.7, ease: E_IN });
+        tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.50 : 0.7, ease: E_IN() });
         tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.20, ease: "power4.in" }, "+=0.28");
 
         if (isMobile){
           tl.add(() => doFlash(), ">");
           tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.28 : 0.42, ease: "power2.out" }, "<");
         } else {
-          // ✅ DESKTOP: igual que siempre (no tocamos PC)
           tl.to("#flash", { opacity: 1, duration: 0.05 });
-          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT }, "-=0.05");
+          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.45 : 0.6, ease: E_OUT() }, "-=0.05");
           tl.to("#flash", { opacity: 0, duration: 0.8, ease: "power2.out" }, "-=0.45");
         }
 
         tl.set("#intro-overlay", { visibility: "hidden" });
 
-        // ✅ PERF: low-end móvil: muestra layers sin animar (menor carga)
         if (lowEndMobile){
           tl.set(".layer", { opacity: 1 }, ">-=0.02");
         } else {
@@ -1165,7 +1230,6 @@
         tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.55 : 0.9, ease: "power4.out" }, "-=0.62");
         tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.42 : 0.7, ease: "power3.out" }, "-=0.72");
 
-        // devuelve el filtro real una vez que ya todo está estable
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: HERO_FILTER }, ">-=0.02");
         }
@@ -1176,9 +1240,9 @@
           }, ">");
         }
 
-        // ✅ Idle controlado (low-end = OFF total)
+        // ✅ Idle: low-end = OFF total
         tl.add(() => {
-          if (lowEndMobile) return; // ⛔️ en low-end no dejamos nada corriendo
+          if (lowEndMobile) return;
 
           let idleTweens = [];
 
@@ -1186,17 +1250,11 @@
             gsap.killTweensOf("#hero-logo-wrap");
             gsap.set("#hero-logo-wrap", { y: 0, rotationZ: 0, transformOrigin: "50% 60%", force3D: true });
 
-            const yAmp = 14;
-            const rotAmp = -1.2;
-            const dur1 = 2.6;
-            const dur2 = 3.2;
-
             idleTweens.push(
-              gsap.to("#hero-logo-wrap", { y: -yAmp, rotationZ: rotAmp, duration: dur1, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true }),
-              gsap.to("#hero-logo-wrap", { scale: 1.018, duration: dur2, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true })
+              gsap.to("#hero-logo-wrap", { y: -14, rotationZ: -1.2, duration: 2.6, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true }),
+              gsap.to("#hero-logo-wrap", { scale: 1.018, duration: 3.2, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true })
             );
 
-            // ✅ solo en móviles buenos: micro-pulse CTA
             if (isMobile && !isTouch){
               idleTweens.push(
                 gsap.to(".menu-trigger", { scale: 1.03, duration: 1.8, ease: "sine.inOut", yoyo: true, repeat: -1, repeatDelay: 4 })
@@ -1302,7 +1360,7 @@
 
         if (!openBtn || !closeBtn || !menuOverlay) return;
 
-        // ✅ Low-end mobile: menú “pro” pero sin cinemática pesada
+        // ✅ Low-end mobile: menú sin cinemática pesada (AHORA sí se activará)
         if (isMobile && lowEndMobile){
           const show = () => {
             if (menuOverlay.classList.contains("active")) return;
@@ -1339,7 +1397,6 @@
         const screenSlash = document.getElementById("screen-slash");
         const screenSlashGlow = document.getElementById("screen-slash-glow");
 
-        // ✅ PERF: low-end móvil: apaga glow/shine (ya está cubierto arriba)
         const liteSlash = isMobile && lowEndMobile;
         if (liteSlash){
           gsap.set("#screen-slash-glow", { opacity: 0, display: "none" });
@@ -1398,7 +1455,6 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
-          // ✅ PERF: móvil: reduce vibración; (móvil = 1, desktop = 5)
           const shakeRepeats = isMobile ? 1 : 5;
           const shakeDur = isMobile ? 0.05 : 0.045;
 
@@ -1457,7 +1513,6 @@
         });
       }
 
-      // ✅ PERF: Parallax optimizado (móvil OFF, desktop quickTo + rAF)
       function setupParallax(){
         if (isMobile) return;
 
