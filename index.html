@@ -25,6 +25,10 @@
       --app-h: 100vh;
     }
 
+    /* ✅ Tap UX (no afecta desktop visual) */
+    *{ -webkit-tap-highlight-color: transparent; }
+    button, a{ touch-action: manipulation; }
+
     html, body{
       height: 100%;
       margin:0; padding:0;
@@ -44,6 +48,8 @@
     .canvas-container{
       position:relative;
       width:100vw;
+      /* ✅ dvh ayuda en móviles modernos; fallback via --app-h */
+      height:100dvh;
       height:var(--app-h);
       perspective:1200px;
       overflow:hidden;
@@ -89,11 +95,11 @@
 
     /* ✅ PERF: low-end reduce filtros */
     .low-end #hero-logo-wrap::before{
-      filter: blur(6px) !important;
-      opacity: .35 !important;
+      filter: blur(5px) !important;
+      opacity: .30 !important;
     }
     .low-end #hero-logo{
-      filter: drop-shadow(0 14px 30px rgba(0,0,0,0.32)) !important;
+      filter: none !important;
     }
 
     /* ✅ FLASH (mobile-safe): en low-end NO animamos opacity de un div full-screen.
@@ -553,6 +559,16 @@
       will-change: transform, opacity;
     }
 
+    /* ✅ Touch: elimina hover pesado (solo touch/coarse, no desktop) */
+    @media (hover: none) and (pointer: coarse){
+      .menu-trigger:hover,
+      .menu-item-btn:hover,
+      .menu-big-btn:hover,
+      .social-icon:hover{ transform:none !important; filter:none !important; }
+      .menu-trigger:hover{ background:#000 !important; color:#fff !important; border-color: rgba(255,255,255,.28) !important; }
+      #hero-text ul li:hover{ padding-left:0 !important; padding-right:0 !important; }
+    }
+
     /* ✅ MOBILE: simetría nav + CTA más importante */
     @media (max-width: 767px){
       #top-nav{
@@ -651,15 +667,16 @@
         margin: 0 !important;
       }
 
+      /* ✅ PERF móvil: baja el costo del shadow del PNG (sigue viéndose brutal con el halo) */
       #hero-logo{
         height: 100% !important;
         width: auto !important;
         max-width: 92vw !important;
-        filter: drop-shadow(0 40px 80px rgba(0,0,0,0.45)) !important;
+        filter: drop-shadow(0 22px 44px rgba(0,0,0,0.35)) !important;
       }
 
       /* ✅ PERF baseline móvil */
-      .low-end #hero-logo{ filter: drop-shadow(0 18px 40px rgba(0,0,0,0.35)) !important; }
+      .low-end #hero-logo{ filter: none !important; }
 
       #hero-text{
         align-items: center !important;
@@ -932,31 +949,56 @@
   </div>
 
   <script>
+    // ====== Viewport height: evita resize-spam del browser chrome móvil ======
+    const IS_MOBILE = window.matchMedia("(max-width: 767px)").matches;
+    let introRunning = true;
+
+    function getViewportH(){
+      if (IS_MOBILE && window.visualViewport) return Math.round(window.visualViewport.height);
+      return window.innerHeight;
+    }
+
     function setAppHeight(){
-      document.documentElement.style.setProperty('--app-h', window.innerHeight + 'px');
+      document.documentElement.style.setProperty('--app-h', getViewportH() + 'px');
     }
     setAppHeight();
 
-    // ✅ PERF: throttle resize (barra de navegador móvil = spam)
-    let rh = null;
-    window.addEventListener("resize", () => {
-      if (rh) cancelAnimationFrame(rh);
-      rh = requestAnimationFrame(setAppHeight);
-    }, { passive: true });
+    // ✅ PERF: en móvil, ignora resize mientras corre el intro (reduce jank)
+    function scheduleAppHeight(){
+      if (IS_MOBILE && introRunning) return;
+      setAppHeight();
+    }
 
-    window.addEventListener("orientationchange", () => {
-      setTimeout(setAppHeight, 60);
-    }, { passive: true });
+    if (IS_MOBILE && window.visualViewport){
+      let vvRAF = null;
+      window.visualViewport.addEventListener("resize", () => {
+        if (vvRAF) cancelAnimationFrame(vvRAF);
+        vvRAF = requestAnimationFrame(scheduleAppHeight);
+      }, { passive: true });
+    } else {
+      // ✅ PERF: throttle resize (barra de navegador móvil = spam)
+      let rh = null;
+      window.addEventListener("resize", () => {
+        if (rh) cancelAnimationFrame(rh);
+        rh = requestAnimationFrame(scheduleAppHeight);
+      }, { passive: true });
+
+      window.addEventListener("orientationchange", () => {
+        setTimeout(scheduleAppHeight, 60);
+      }, { passive: true });
+    }
 
     if (typeof window.gsap === "undefined") {
       const overlay = document.getElementById("intro-overlay");
       if (overlay) { overlay.style.opacity = "0"; overlay.style.visibility = "hidden"; }
     } else {
+      // ✅ NO tocamos desktop: esto corre igual.
       gsap.ticker.lagSmoothing(0);
       gsap.defaults({ overwrite: "auto" });
       gsap.config({ force3D: true, nullTargetWarn: false });
 
-      const isMobile = window.matchMedia("(max-width: 767px)").matches;
+      const isMobile = IS_MOBILE;
+      const isTouch = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
 
       // ✅ PERF: detecta low-end (RAM/cores/prefers-reduced-motion)
       const lowEndMobile =
@@ -968,6 +1010,12 @@
         );
 
       if (lowEndMobile) document.documentElement.classList.add("low-end");
+
+      // ✅ Mobile-only: vuelve a habilitar lagSmoothing para evitar “saltos” cuando se caen frames
+      if (isMobile){
+        gsap.ticker.lagSmoothing(1000, 33);
+        if (lowEndMobile) gsap.config({ force3D: false });
+      }
 
       // ✅ Eases adaptativos
       const E_IN  = lowEndMobile ? "power3.out" : "expo.out";
@@ -988,12 +1036,15 @@
       const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
 
       if (isMobile){
+        const s = lowEndMobile ? 1.35 : 1.55;
+        const x = lowEndMobile ? -24 : -40;
+        const r = lowEndMobile ? -1.2 : -2;
         gsap.set("#hero-logo-wrap", {
-          scale: 1.6,
-          x: -40,
-          rotationZ: -2,
+          scale: s,
+          x: x,
+          rotationZ: r,
           opacity: 0,
-          force3D: true,
+          force3D: !lowEndMobile,
           filter: "none"
         });
       } else {
@@ -1007,7 +1058,7 @@
         });
       }
 
-      gsap.set("#hero-text", { y: 80, opacity: 0, force3D: true });
+      gsap.set("#hero-text", { y: lowEndMobile ? 56 : 80, opacity: 0, force3D: !lowEndMobile });
 
       // ✅ PERF clave: espera a que las imágenes decodifiquen ANTES del boom
       function waitImg(img, timeoutMs = 1200){
@@ -1030,8 +1081,7 @@
 
       // ✅ Flash ultra estable (especialmente en gama baja)
       function doFlash(){
-        // En low-end: súper corto para no romper el compositor
-        const ms = lowEndMobile ? 45 : 70;
+        const ms = lowEndMobile ? 40 : 70;
         document.body.classList.add("flash");
         requestAnimationFrame(() => {
           setTimeout(() => document.body.classList.remove("flash"), ms);
@@ -1042,26 +1092,30 @@
         // pre-decode imágenes críticas (solo móvil)
         if (isMobile){
           await Promise.all([
-            waitImg(document.getElementById("hero-logo"), lowEndMobile ? 900 : 1200),
+            waitImg(document.getElementById("hero-logo"), lowEndMobile ? 850 : 1200),
             waitImg(document.getElementById("nav-logo"), 700)
           ]);
         }
 
-        const tl = gsap.timeline();
+        const tl = gsap.timeline({
+          onComplete: () => {
+            introRunning = false;
+            // setAppHeight final por si el chrome cambió durante el intro
+            scheduleAppHeight();
+          }
+        });
 
         // en móvil, durante el boom: quita el filtro del logo y lo devuelves al final
         if (isMobile && heroLogoEl){
           tl.set(heroLogoEl, { filter: "none" }, 0);
         }
 
-        tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.55 : 0.7, ease: E_IN });
-        tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.22, ease: "power4.in" }, "+=0.28");
+        tl.to("#intro-title", { opacity: 1, scale: 1, duration: lowEndMobile ? 0.50 : 0.7, ease: E_IN });
+        tl.to("#intro-title", { scale: 0.7, opacity: 0, duration: 0.20, ease: "power4.in" }, "+=0.28");
 
         if (isMobile){
-          // ✅ CAMBIO CLAVE: el destello ya NO es un div con opacity animada.
-          // Es un pseudo-elemento del body con un pulso corto.
           tl.add(() => doFlash(), ">");
-          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.32 : 0.42, ease: "power2.out" }, "<");
+          tl.to("#intro-overlay", { opacity: 0, duration: lowEndMobile ? 0.28 : 0.42, ease: "power2.out" }, "<");
         } else {
           // ✅ DESKTOP: igual que siempre (no tocamos PC)
           tl.to("#flash", { opacity: 1, duration: 0.05 });
@@ -1071,13 +1125,17 @@
 
         tl.set("#intro-overlay", { visibility: "hidden" });
 
-        // ✅ PERF: en móvil NO revelamos layers durante el flash
-        tl.to(".layer", {
-          opacity: 1,
-          duration: lowEndMobile ? 0.28 : (isMobile ? 0.45 : 0.7),
-          stagger: lowEndMobile ? 0 : (isMobile ? 0.01 : 0.04),
-          ease: "power2.out"
-        }, isMobile ? ">-=0.02" : "-=0.75");
+        // ✅ PERF: low-end móvil: muestra layers sin animar (menor carga)
+        if (lowEndMobile){
+          tl.set(".layer", { opacity: 1 }, ">-=0.02");
+        } else {
+          tl.to(".layer", {
+            opacity: 1,
+            duration: isMobile ? 0.45 : 0.7,
+            stagger: isMobile ? 0.01 : 0.04,
+            ease: "power2.out"
+          }, isMobile ? ">-=0.02" : "-=0.75");
+        }
 
         if (isMobile){
           tl.to("#hero-logo-wrap", {
@@ -1085,9 +1143,9 @@
             x: 0,
             rotationZ: 0,
             opacity: 1,
-            duration: lowEndMobile ? 0.40 : 0.52,
+            duration: lowEndMobile ? 0.34 : 0.52,
             ease: "power3.out",
-            force3D: true
+            force3D: !lowEndMobile
           }, "-=0.62");
         } else {
           tl.to("#hero-logo-wrap", {
@@ -1104,8 +1162,8 @@
           tl.set("#hero-logo-wrap", { filter: "none" }, ">-=0.05");
         }
 
-        tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.62 : 0.9, ease: "power4.out" }, "-=0.62");
-        tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.48 : 0.7, ease: "power3.out" }, "-=0.72");
+        tl.to("#hero-text", { y: 0, opacity: 1, duration: lowEndMobile ? 0.55 : 0.9, ease: "power4.out" }, "-=0.62");
+        tl.to("#top-nav", { opacity: 1, y: 0, duration: lowEndMobile ? 0.42 : 0.7, ease: "power3.out" }, "-=0.72");
 
         // devuelve el filtro real una vez que ya todo está estable
         if (isMobile && heroLogoEl){
@@ -1118,25 +1176,28 @@
           }, ">");
         }
 
-        // ✅ Idle controlado (low-end = menos + se apaga)
+        // ✅ Idle controlado (low-end = OFF total)
         tl.add(() => {
+          if (lowEndMobile) return; // ⛔️ en low-end no dejamos nada corriendo
+
           let idleTweens = [];
 
           function startIdle(){
             gsap.killTweensOf("#hero-logo-wrap");
             gsap.set("#hero-logo-wrap", { y: 0, rotationZ: 0, transformOrigin: "50% 60%", force3D: true });
 
-            const yAmp = lowEndMobile ? 8 : 14;
-            const rotAmp = lowEndMobile ? -0.6 : -1.2;
-            const dur1 = lowEndMobile ? 3.4 : 2.6;
-            const dur2 = lowEndMobile ? 4.2 : 3.2;
+            const yAmp = 14;
+            const rotAmp = -1.2;
+            const dur1 = 2.6;
+            const dur2 = 3.2;
 
             idleTweens.push(
               gsap.to("#hero-logo-wrap", { y: -yAmp, rotationZ: rotAmp, duration: dur1, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true }),
-              gsap.to("#hero-logo-wrap", { scale: lowEndMobile ? 1.01 : 1.018, duration: dur2, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true })
+              gsap.to("#hero-logo-wrap", { scale: 1.018, duration: dur2, ease: "sine.inOut", yoyo: true, repeat: -1, force3D: true })
             );
 
-            if (isMobile && !lowEndMobile){
+            // ✅ solo en móviles buenos: micro-pulse CTA
+            if (isMobile && !isTouch){
               idleTweens.push(
                 gsap.to(".menu-trigger", { scale: 1.03, duration: 1.8, ease: "sine.inOut", yoyo: true, repeat: -1, repeatDelay: 4 })
               );
@@ -1152,9 +1213,6 @@
 
           startIdle();
 
-          // ✅ Low-end: apaga idle luego de 5s
-          if (lowEndMobile) setTimeout(stopIdle, 5000);
-
           document.addEventListener("visibilitychange", () => {
             if (document.hidden) stopIdle();
             else startIdle();
@@ -1166,7 +1224,7 @@
       }
 
       document.addEventListener("DOMContentLoaded", () => {
-        setTimeout(startIntro, isMobile ? 160 : 120);
+        setTimeout(startIntro, isMobile ? 150 : 120);
       });
 
       const WHATSAPP_NUMBER = "";
@@ -1242,6 +1300,35 @@
         const closeBtn = document.getElementById("close-menu");
         const menuOverlay = document.getElementById("menu-overlay");
 
+        if (!openBtn || !closeBtn || !menuOverlay) return;
+
+        // ✅ Low-end mobile: menú “pro” pero sin cinemática pesada
+        if (isMobile && lowEndMobile){
+          const show = () => {
+            if (menuOverlay.classList.contains("active")) return;
+            menuOverlay.classList.add("active");
+            gsap.fromTo(menuOverlay, { opacity: 0 }, { opacity: 1, duration: 0.18, ease: "power1.out" });
+            wireMenuButtons();
+          };
+          const hide = () => {
+            if (!menuOverlay.classList.contains("active")) return;
+            gsap.to(menuOverlay, {
+              opacity: 0,
+              duration: 0.14,
+              ease: "power1.in",
+              onComplete: () => {
+                menuOverlay.classList.remove("active");
+                gsap.set(menuOverlay, { clearProps: "opacity" });
+              }
+            });
+          };
+
+          openBtn.addEventListener("click", show);
+          closeBtn.addEventListener("click", hide);
+          document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+          return;
+        }
+
         const menuIntro = document.getElementById("menu-intro");
         const splitWrapper = document.getElementById("split-wrapper");
         const slashLine = document.getElementById("slash-line");
@@ -1252,7 +1339,7 @@
         const screenSlash = document.getElementById("screen-slash");
         const screenSlashGlow = document.getElementById("screen-slash-glow");
 
-        // ✅ PERF: low-end móvil: apaga glow/shine
+        // ✅ PERF: low-end móvil: apaga glow/shine (ya está cubierto arriba)
         const liteSlash = isMobile && lowEndMobile;
         if (liteSlash){
           gsap.set("#screen-slash-glow", { opacity: 0, display: "none" });
@@ -1311,12 +1398,12 @@
           gsap.set(screenSlash, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
           gsap.set(screenSlashGlow, { scaleX: 0, opacity: 0, transformOrigin: "left center" });
 
-          // ✅ PERF: móvil: reduce vibración; low-end casi nada
-          const shakeRepeats = isMobile ? (lowEndMobile ? 0 : 2) : 5;
-          const shakeDur = isMobile ? (lowEndMobile ? 0.055 : 0.05) : 0.045;
+          // ✅ PERF: móvil: reduce vibración; (móvil = 1, desktop = 5)
+          const shakeRepeats = isMobile ? 1 : 5;
+          const shakeDur = isMobile ? 0.05 : 0.045;
 
-          const panelDur = isMobile ? (lowEndMobile ? 0.24 : 0.28) : 0.32;
-          const splitOutDur = isMobile ? (lowEndMobile ? 0.30 : 0.34) : 0.40;
+          const panelDur = isMobile ? 0.26 : 0.32;
+          const splitOutDur = isMobile ? 0.34 : 0.40;
 
           const menuTL = gsap.timeline({ onComplete: () => { isAnimating = false; } });
 
