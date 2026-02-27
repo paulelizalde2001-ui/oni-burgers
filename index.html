@@ -368,6 +368,8 @@
       image-rendering:auto;
     }
 
+    #mobile-socials{ display:none; }
+
     #hero-text{ position:relative; z-index:5; }
     #hero-logo{ position:relative; z-index:2; }
 
@@ -570,9 +572,9 @@
     /* ✅ MOBILE: simetría nav + CTA más importante */
     @media (max-width: 767px){
       #top-nav{
-        height: 84px !important;
-        padding-left: 18px !important;
-        padding-right: 18px !important;
+        height: 82px !important;
+        padding-left: max(16px, env(safe-area-inset-left)) !important;
+        padding-right: max(16px, env(safe-area-inset-right)) !important;
         align-items: center !important;
         background: linear-gradient(
           to bottom,
@@ -639,26 +641,32 @@
 
       #parallax-scene .layer[data-depth="0.2"] > div{
         display:flex !important;
-        flex-direction:column !important;
+        flex-direction:row !important;
         justify-content:center !important;
         align-items:center !important;
-        padding-left: 6vw !important;
-        padding-right: 6vw !important;
-        padding-top: 92px !important;
-        padding-bottom: 26px !important;
+        padding-left: 4.5vw !important;
+        padding-right: 4.5vw !important;
+        padding-top: 82px !important;
+        padding-bottom: 20px !important;
         gap: 10px !important;
         height: 100% !important;
+        max-width: 96vw !important;
+        margin: 0 auto !important;
+        border-radius: 20px !important;
+        background: radial-gradient(circle at 32% 50%, rgba(209,45,45,.14), rgba(0,0,0,0) 56%),
+                    linear-gradient(90deg, rgba(255,255,255,.035), rgba(255,255,255,.015));
       }
 
       #parallax-scene .layer[data-depth="0.2"] > div > div:first-child{
-        justify-content: center !important;
+        justify-content: flex-end !important;
         padding-right: 0 !important;
-        width: 100% !important;
+        width: auto !important;
+        flex: 0 1 auto !important;
       }
 
       #hero-logo-wrap{
-        height: 54vh !important;
-        max-width: 92vw !important;
+        height: min(52vh, 410px) !important;
+        max-width: 52vw !important;
         display:flex !important;
         justify-content:center !important;
         align-items:center !important;
@@ -669,43 +677,50 @@
       #hero-logo{
         height: 100% !important;
         width: auto !important;
-        max-width: 92vw !important;
-        filter: drop-shadow(0 22px 44px rgba(0,0,0,0.35)) !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
+        filter: drop-shadow(0 24px 44px rgba(0,0,0,0.38)) !important;
       }
 
       .low-end #hero-logo{ filter: none !important; }
 
       #hero-text{
-        align-items: center !important;
-        text-align: center !important;
-        width: 100% !important;
+        align-items: flex-start !important;
+        text-align: left !important;
+        width: min(42vw, 250px) !important;
+        min-width: 154px !important;
       }
 
       #hero-text h2{
-        letter-spacing: 0.55em !important;
-        margin-bottom: 10px !important;
+        font-size: 10px !important;
+        letter-spacing: 0.18em !important;
+        margin-bottom: 4px !important;
+        opacity: .78 !important;
       }
 
       #hero-text h1{
-        font-size: 5.8rem !important;
-        margin-top: -6px !important;
-        margin-bottom: 12px !important;
+        font-size: clamp(3.5rem, 13vw, 4.8rem) !important;
+        margin-top: 0 !important;
+        margin-bottom: 4px !important;
+        line-height: .9 !important;
       }
 
       #hero-text p{
-        font-size: 15px !important;
-        letter-spacing: 0.34em !important;
-        margin-bottom: 18px !important;
+        font-size: clamp(11px, 3.2vw, 13px) !important;
+        letter-spacing: 0.16em !important;
+        margin-bottom: 10px !important;
       }
 
       #hero-text ul{
-        max-width: 92vw !important;
-        width: 92vw !important;
-        font-size: 11px !important;
-        letter-spacing: 0.26em !important;
+        display:flex !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 10px !important;
+        letter-spacing: .12em !important;
+        gap: 8px !important;
       }
-
-      #hero-text ul li{ padding-bottom: 14px !important; }
+      #hero-text ul li{ padding-bottom: 8px !important; }
+      #hero-text ul li:nth-child(n+3){ display:none !important; }
       #hero-text ul li:hover{
         padding-left: 0 !important;
         padding-right: 0 !important;
@@ -729,6 +744,34 @@
 
       /* ✅ En móvil: #flash no se usa */
       #flash{ display:none !important; }
+
+      #mobile-socials{
+        position: fixed;
+        left: 50%;
+        bottom: max(14px, env(safe-area-inset-bottom));
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        z-index: 120;
+        pointer-events: auto;
+        background: rgba(0,0,0,.48);
+        border: 1px solid rgba(255,255,255,.18);
+        border-radius: 999px;
+        padding: 8px 12px;
+        backdrop-filter: blur(6px);
+      }
+
+      #mobile-socials .social-img{
+        width: 34px;
+        height: 34px;
+      }
+
+      @media (max-height: 740px){
+        #hero-logo-wrap{ height: min(44vh, 320px) !important; }
+        #hero-text h1{ font-size: clamp(3rem, 12vw, 4rem) !important; }
+        #hero-text ul li:nth-child(n+2){ display:none !important; }
+      }
     }
   </style>
 </head>
@@ -898,6 +941,18 @@
       </button>
     </div>
   </nav>
+
+  <div id="mobile-socials" aria-label="Redes sociales">
+    <a href="#" aria-label="Instagram" class="social-icon">
+      <img class="social-img" src="instagram.png" alt="Instagram" decoding="async" />
+    </a>
+    <a href="#" aria-label="TikTok" class="social-icon">
+      <img class="social-img" src="tiktok.png" alt="TikTok" decoding="async" />
+    </a>
+    <a href="#" aria-label="WhatsApp" class="social-icon">
+      <img class="social-img" src="whatsapp.png" alt="WhatsApp" decoding="async" />
+    </a>
+  </div>
 
   <div class="canvas-container" id="parallax-scene">
     <div class="layer"></div>
@@ -1108,9 +1163,9 @@
       const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
 
       if (isMobile){
-        const s = lowEndMobile ? 1.35 : 1.55;
-        const x = lowEndMobile ? -24 : -40;
-        const r = lowEndMobile ? -1.2 : -2;
+        const s = lowEndMobile ? 1.16 : 1.26;
+        const x = lowEndMobile ? -2 : -5;
+        const r = lowEndMobile ? -0.3 : -0.6;
         gsap.set("#hero-logo-wrap", {
           scale: s,
           x: x,
@@ -1379,6 +1434,45 @@
                 gsap.set(menuOverlay, { clearProps: "opacity" });
               }
             });
+          };
+
+          openBtn.addEventListener("click", show);
+          closeBtn.addEventListener("click", hide);
+          document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+          return;
+        }
+
+        // Mobile standard: smooth open/close without heavy cinematic animation
+        if (isMobile){
+          const menuSheet = document.querySelector("#menu-overlay .menu-sheet");
+
+          const show = () => {
+            if (menuOverlay.classList.contains("active")) return;
+            menuOverlay.classList.add("active");
+            if (menuSheet){
+              gsap.fromTo(menuSheet,
+                { y: 16, opacity: 0.98, scale: 0.992 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", force3D: true }
+              );
+            }
+            gsap.fromTo(menuOverlay, { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "power1.out" });
+            wireMenuButtons();
+          };
+
+          const hide = () => {
+            if (!menuOverlay.classList.contains("active")) return;
+            const tl = gsap.timeline({
+              onComplete: () => {
+                menuOverlay.classList.remove("active");
+                gsap.set(menuOverlay, { clearProps: "opacity" });
+                if (menuSheet) gsap.set(menuSheet, { clearProps: "transform,opacity" });
+              }
+            });
+
+            if (menuSheet){
+              tl.to(menuSheet, { y: 8, opacity: 0.98, duration: 0.12, ease: "power1.in" }, 0);
+            }
+            tl.to(menuOverlay, { opacity: 0, duration: 0.12, ease: "power1.in" }, 0);
           };
 
           openBtn.addEventListener("click", show);
