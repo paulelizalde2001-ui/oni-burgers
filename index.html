@@ -570,9 +570,9 @@
     /* ✅ MOBILE: simetría nav + CTA más importante */
     @media (max-width: 767px){
       #top-nav{
-        height: 84px !important;
-        padding-left: 18px !important;
-        padding-right: 18px !important;
+        height: 82px !important;
+        padding-left: max(16px, env(safe-area-inset-left)) !important;
+        padding-right: max(16px, env(safe-area-inset-right)) !important;
         align-items: center !important;
         background: linear-gradient(
           to bottom,
@@ -639,26 +639,27 @@
 
       #parallax-scene .layer[data-depth="0.2"] > div{
         display:flex !important;
-        flex-direction:column !important;
+        flex-direction:row !important;
         justify-content:center !important;
         align-items:center !important;
-        padding-left: 6vw !important;
-        padding-right: 6vw !important;
-        padding-top: 92px !important;
-        padding-bottom: 26px !important;
-        gap: 10px !important;
+        padding-left: 5vw !important;
+        padding-right: 5vw !important;
+        padding-top: 86px !important;
+        padding-bottom: 18px !important;
+        gap: 12px !important;
         height: 100% !important;
       }
 
       #parallax-scene .layer[data-depth="0.2"] > div > div:first-child{
-        justify-content: center !important;
+        justify-content: flex-end !important;
         padding-right: 0 !important;
-        width: 100% !important;
+        width: auto !important;
+        flex: 0 1 auto !important;
       }
 
       #hero-logo-wrap{
-        height: 54vh !important;
-        max-width: 92vw !important;
+        height: min(44vh, 360px) !important;
+        max-width: 48vw !important;
         display:flex !important;
         justify-content:center !important;
         align-items:center !important;
@@ -669,41 +670,41 @@
       #hero-logo{
         height: 100% !important;
         width: auto !important;
-        max-width: 92vw !important;
-        filter: drop-shadow(0 22px 44px rgba(0,0,0,0.35)) !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
+        filter: drop-shadow(0 20px 36px rgba(0,0,0,0.34)) !important;
       }
 
       .low-end #hero-logo{ filter: none !important; }
 
       #hero-text{
-        align-items: center !important;
-        text-align: center !important;
-        width: 100% !important;
+        align-items: flex-start !important;
+        text-align: left !important;
+        width: min(44vw, 240px) !important;
+        min-width: 150px !important;
       }
 
       #hero-text h2{
-        letter-spacing: 0.55em !important;
-        margin-bottom: 10px !important;
+        font-size: 10px !important;
+        letter-spacing: 0.16em !important;
+        margin-bottom: 6px !important;
+        opacity: .7 !important;
       }
 
       #hero-text h1{
-        font-size: 5.8rem !important;
-        margin-top: -6px !important;
-        margin-bottom: 12px !important;
+        font-size: clamp(3.1rem, 12vw, 4.2rem) !important;
+        margin-top: 0 !important;
+        margin-bottom: 6px !important;
+        line-height: .9 !important;
       }
 
       #hero-text p{
-        font-size: 15px !important;
-        letter-spacing: 0.34em !important;
-        margin-bottom: 18px !important;
+        font-size: clamp(10px, 3vw, 12px) !important;
+        letter-spacing: 0.14em !important;
+        margin-bottom: 0 !important;
       }
 
-      #hero-text ul{
-        max-width: 92vw !important;
-        width: 92vw !important;
-        font-size: 11px !important;
-        letter-spacing: 0.26em !important;
-      }
+      #hero-text ul{ display:none !important; }
 
       #hero-text ul li{ padding-bottom: 14px !important; }
       #hero-text ul li:hover{
@@ -729,6 +730,11 @@
 
       /* ✅ En móvil: #flash no se usa */
       #flash{ display:none !important; }
+
+      @media (max-height: 740px){
+        #hero-logo-wrap{ height: min(38vh, 280px) !important; }
+        #hero-text h1{ font-size: clamp(2.7rem, 11vw, 3.6rem) !important; }
+      }
     }
   </style>
 </head>
@@ -1108,9 +1114,9 @@
       const HERO_FILTER = heroLogoEl ? getComputedStyle(heroLogoEl).filter : "none";
 
       if (isMobile){
-        const s = lowEndMobile ? 1.35 : 1.55;
-        const x = lowEndMobile ? -24 : -40;
-        const r = lowEndMobile ? -1.2 : -2;
+        const s = lowEndMobile ? 1.08 : 1.16;
+        const x = lowEndMobile ? -6 : -10;
+        const r = lowEndMobile ? -0.6 : -1;
         gsap.set("#hero-logo-wrap", {
           scale: s,
           x: x,
@@ -1379,6 +1385,45 @@
                 gsap.set(menuOverlay, { clearProps: "opacity" });
               }
             });
+          };
+
+          openBtn.addEventListener("click", show);
+          closeBtn.addEventListener("click", hide);
+          document.addEventListener("keydown", (e) => { if (e.key === "Escape") hide(); });
+          return;
+        }
+
+        // Mobile standard: smooth open/close without heavy cinematic animation
+        if (isMobile){
+          const menuSheet = document.querySelector("#menu-overlay .menu-sheet");
+
+          const show = () => {
+            if (menuOverlay.classList.contains("active")) return;
+            menuOverlay.classList.add("active");
+            if (menuSheet){
+              gsap.fromTo(menuSheet,
+                { y: 16, opacity: 0.98, scale: 0.992 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.2, ease: "power2.out", force3D: true }
+              );
+            }
+            gsap.fromTo(menuOverlay, { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "power1.out" });
+            wireMenuButtons();
+          };
+
+          const hide = () => {
+            if (!menuOverlay.classList.contains("active")) return;
+            const tl = gsap.timeline({
+              onComplete: () => {
+                menuOverlay.classList.remove("active");
+                gsap.set(menuOverlay, { clearProps: "opacity" });
+                if (menuSheet) gsap.set(menuSheet, { clearProps: "transform,opacity" });
+              }
+            });
+
+            if (menuSheet){
+              tl.to(menuSheet, { y: 8, opacity: 0.98, duration: 0.12, ease: "power1.in" }, 0);
+            }
+            tl.to(menuOverlay, { opacity: 0, duration: 0.12, ease: "power1.in" }, 0);
           };
 
           openBtn.addEventListener("click", show);
